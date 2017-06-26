@@ -5,16 +5,25 @@ CiviBotti can found be searching for civ_gmr_bot in telegram, this is just its s
 This bot is for sending notifications (and general spam and other relevant and not so relevant messages) from giant multiplayer robot games to telegram chats.
 
 Basic features
+
 -Turn notifications, sends notifications when player has a new turn
+
 -Display turn order
 -Send text to speech info on request
+
 -saves data either to sqlite or sql database
 
+
 Planed features
+
 -notify next player when current player launches game
+
 -post gifs, images and other funny related stuff
+
 -display turn timers
+
 -more random string
+
 -customisation
 
 
