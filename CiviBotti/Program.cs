@@ -103,6 +103,7 @@ namespace CiviBotti {
             }
 
             if (message.Text.StartsWith("/newgame")) {
+                await Bot.SendChatActionAsync(chat.Id, ChatAction.Typing);
                 if (chat.Type != ChatType.Private) {
                     await Bot.SendTextMessageAsync(message.Chat.Id, "New game can only be created in private chat!");
                     return;
@@ -177,6 +178,7 @@ namespace CiviBotti {
                 Games.Add(newGame);
                 await Bot.SendTextMessageAsync(message.Chat.Id, $"Succesfuly created the game {newGame.name}!");
             } else if (message.Text.StartsWith("/register")) {
+                await Bot.SendChatActionAsync(chat.Id, ChatAction.Typing);
                 if (chat.Type != ChatType.Private) {
                     await Bot.SendTextMessageAsync(message.Chat.Id, "Registering can only be created in private chat!");
                     return;
@@ -215,6 +217,7 @@ namespace CiviBotti {
                 }
                 await Bot.SendTextMessageAsync(message.Chat.Id, "Registered with steamid " + steamID);
             } else if (message.Text.StartsWith("/addgame")) {
+                await Bot.SendChatActionAsync(chat.Id, ChatAction.Typing);
                 /*if (chat.Type != ChatType.Private) {
                     await Bot.SendTextMessageAsync(message.Chat.Id, "Registering can only be created in private chat!");
                     return;
@@ -269,6 +272,7 @@ namespace CiviBotti {
                 await Bot.SendTextMessageAsync(message.Chat.Id, $"Added game {selectedGame.name} to this channel! You will now receive turn notifications.",
                     replyMarkup: new ReplyKeyboardHide());
             } else if (message.Text.StartsWith("/removegame")) {
+                await Bot.SendChatActionAsync(chat.Id, ChatAction.Typing);
 
                 if (chat.Type != ChatType.Private) {
                     var admins = new List<ChatMember>(await Bot.GetChatAdministratorsAsync(chat.Id));
@@ -304,6 +308,7 @@ namespace CiviBotti {
                 await Bot.SendTextMessageAsync(message.Chat.Id, $"Removed game {selectedGame.name} from this channel! You will not receive any more notifications.",
                     replyMarkup: new ReplyKeyboardHide());
             } else if (message.Text.StartsWith("/order")) {
+                await Bot.SendChatActionAsync(chat.Id, ChatAction.Typing);
                 GameData selectedGame = null;
                 foreach (var game in Games) {
                     foreach (var chatid in game.chats) {
@@ -345,6 +350,7 @@ namespace CiviBotti {
                 await Bot.SendTextMessageAsync(message.Chat.Id, $"Order is:\n{result}",
                     replyMarkup: new ReplyKeyboardHide());
             } else if (message.Text.StartsWith("/next")) {
+                await Bot.SendChatActionAsync(chat.Id, ChatAction.Typing);
                 GameData selectedGame = null;
                 foreach (var game in Games) {
                     foreach (var chatid in game.chats) {
@@ -391,7 +397,7 @@ namespace CiviBotti {
                     replyMarkup: new ReplyKeyboardHide());
             } else if (message.Text.StartsWith("/tee")) {
 
-
+                await Bot.SendChatActionAsync(chat.Id, ChatAction.RecordAudio);
                 GameData selectedGame = null;
                 foreach (var game in Games) {
                     foreach (var chatid in game.chats) {
