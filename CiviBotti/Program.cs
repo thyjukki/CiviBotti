@@ -263,7 +263,7 @@ namespace CiviBotti {
 
                 selectedGame.chats.Add(chat.Id);
 
-                selectedGame.InsertChats();
+                selectedGame.InsertChat(chat.Id);
 
 
                 await Bot.SendTextMessageAsync(message.Chat.Id, $"Added game {selectedGame.name} to this channel! You will now receive turn notifications.",

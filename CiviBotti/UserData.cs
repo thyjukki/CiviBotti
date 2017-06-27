@@ -47,7 +47,7 @@ namespace CiviBotti {
         }
         
         public static UserData GetBySteamID(string steamid) {
-            string sql = $"SELECT * FROM users WHERE steamid = {steamid}";
+            string sql = $"SELECT * FROM users WHERE steamid = '{steamid}'";
             DatabaseReader reader = Program.database.ExecuteReader(sql);
 
 

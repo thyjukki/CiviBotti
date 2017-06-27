@@ -54,7 +54,7 @@ namespace CiviBotti {
             if (chats == null) {
                 return;
             }
-            
+
             foreach (var chat in chats) {
                 string sql = $"INSERT INTO gamechats (gameid, chatid) values ({gameID}, {chat})";
                 Console.WriteLine(sql);
