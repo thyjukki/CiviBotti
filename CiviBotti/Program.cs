@@ -434,8 +434,41 @@ namespace CiviBotti {
                 synth.SelectVoiceByHints(VoiceGender.Female, VoiceAge.Adult, 0, new CultureInfo("fi-FI"));
 
                 synth.SetOutputToWaveStream(stream);
-                synth.Speak($"{name} tee vuoros");
 
+                Random rnd = new Random(DateTime.Now.Millisecond);
+
+
+
+                string output = "";
+                int rInt = rnd.Next(0, 7);
+                switch (rInt) {
+                    case 0:
+                        output = $"{name} tee vuoros";
+                        break;
+                    case 1:
+                        output = $"Voisitko ystävällisesti tehä sen vuoros {name}";
+                        break;
+                    case 2:
+                        output = $"Oispa vuoro {name}";
+                        break;
+                    case 3:
+                        output = $"Älä nyt kasvata sitä turn timerias siel {name}";
+                        break;
+                    case 4:
+                        output = $"Nyt sitä Civiä {name} perkele!";
+                        break;
+                    case 5:
+                        output = $"Nyt vittu se vuoro {name}";
+                        break;
+                    case 6:
+                        output = $"Älä leiki tapiiria {name}";
+                        break;
+                    default:
+                        output = $"{name} tee vuoros";
+                        break;
+                }
+
+                synth.Speak(output);
                 stream.Flush();
 
                 stream.Seek(0, SeekOrigin.Begin);

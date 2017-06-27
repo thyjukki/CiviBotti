@@ -62,6 +62,16 @@ namespace CiviBotti {
             }
         }
 
+        public void InsertChat(long chatID) {
+            if (chats == null) {
+                return;
+            }
+     
+            string sql = $"INSERT INTO gamechats (gameid, chatid) values ({gameID}, {chatID})";
+            Console.WriteLine(sql);
+            Program.database.ExecuteNonQuery(sql);
+        }
+
         public void InsertFull() {
             InsertDatabase();
             InsertDatabasePlayers();
