@@ -440,7 +440,7 @@ namespace CiviBotti {
 
 
                 string output = "";
-                int rInt = rnd.Next(0, 7);
+                int rInt = rnd.Next(0, 8);
                 switch (rInt) {
                     case 0:
                         output = $"{name} tee vuoros";
@@ -462,6 +462,9 @@ namespace CiviBotti {
                         break;
                     case 6:
                         output = $"Älä leiki tapiiria {name}";
+                        break;
+                    case 7:
+                        output = $"Civi ei pelaa itseään {name}";
                         break;
                     default:
                         output = $"{name} tee vuoros";
