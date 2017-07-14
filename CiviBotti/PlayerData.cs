@@ -2,41 +2,33 @@
 
 namespace CiviBotti {
     public class PlayerData {
-        public long gameID;
-        public string steamID;
-        public UserData user;
-        public int turnOrder;
+        public long GameId;
+        public string SteamId;
+        public UserData User;
+        public int TurnOrder;
 
         public bool InsertDatabase() {
-            string sql = $"INSERT INTO players (gameid, steamid, turnorder) values ({gameID}, {steamID}, {turnOrder})";
+            var sql = $"INSERT INTO players (gameid, steamid, turnorder) values ({GameId}, {SteamId}, {TurnOrder})";
             
             Console.WriteLine(sql);
-            int rows = Program.database.ExecuteNonQuery(sql);
+            var rows = Program.Database.ExecuteNonQuery(sql);
 
-            if (rows == 1) {
-                return true;
-            }
-
-            return false;
+            return rows == 1;
         }
 
         public bool UpdateDatabase() {
-            string sql = $"UPDATE players SET turnorder = {turnOrder} WHERE gameid = {gameID} AND steamId = {steamID}";
+            var sql = $"UPDATE players SET turnorder = {TurnOrder} WHERE gameid = {GameId} AND steamId = {SteamId}";
 
             Console.WriteLine(sql);
-            int rows = Program.database.ExecuteNonQuery(sql);
+            var rows = Program.Database.ExecuteNonQuery(sql);
 
-            if (rows == 1) {
-                return true;
-            }
-
-            return false;
+            return rows == 1;
         }
 
-        public static bool CheckDatabase(long gameID, string steamID) {
-            string sql = $"SELECT * FROM players WHERE gameid = {gameID} AND steamid = {steamID}";
-            DatabaseReader reader = Program.database.ExecuteReader(sql);
-            bool result = reader.HasRows;
+        public static bool CheckDatabase(long gameId, string steamId) {
+            var sql = $"SELECT * FROM players WHERE gameid = {gameId} AND steamid = {steamId}";
+            var reader = Program.Database.ExecuteReader(sql);
+            var result = reader.HasRows;
             reader.Close();
             return result;
         }

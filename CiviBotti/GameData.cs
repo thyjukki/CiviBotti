@@ -1,105 +1,109 @@
-﻿using Newtonsoft.Json.Linq;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using Telegram.Bot.Types;
 
 namespace CiviBotti {
     public class GameData {
-        public long gameID;
-        public UserData owner;
-        private long ownerRaw;
-        public List<long> chats;
-        public PlayerData currentPlayer;
-        private string currentPlayerRaw;
+        public long GameId;
+        public UserData Owner;
+        private long _ownerRaw;
+        public List<long> Chats;
+        public PlayerData CurrentPlayer;
+        private string _currentPlayerRaw;
 
-        public List<PlayerData> players;
-        public string name;
+        public List<PlayerData> Players;
+        public string Name;
 
+        /// <exception cref="DatabaseUnknownType">Condition.</exception>
+        /// <exception cref="DatabaseQueryFail">Condition.</exception>
         public bool InsertDatabase() {
-            string sql = $"INSERT INTO games (gameid, ownerid, name, currentp) values ({gameID}, {owner.ID}, '{name}', {currentPlayer.steamID})";
+            var sql = $"INSERT INTO games (gameid, ownerid, name, currentp) values ({GameId}, {Owner.Id}, '{Name}', {CurrentPlayer.SteamId})";
             Console.WriteLine(sql);
-            int rows = Program.database.ExecuteNonQuery(sql);
+            var rows = Program.Database.ExecuteNonQuery(sql);
 
-            if (rows == 1) {
-                return true;
-            }
-
-            return false;
+            return rows == 1;
         }
 
 
+        /// <exception cref="DatabaseUnknownType">Condition.</exception>
+        /// <exception cref="DatabaseQueryFail">Condition.</exception>
         public bool UpdateCurrent() {
-            string sql = $"UPDATE games SET currentp = {currentPlayer.steamID} WHERE gameid = {gameID}";
+            var sql = $"UPDATE games SET currentp = {CurrentPlayer.SteamId} WHERE gameid = {GameId}";
 
             Console.WriteLine(sql);
-            int rows = Program.database.ExecuteNonQuery(sql);
+            var rows = Program.Database.ExecuteNonQuery(sql);
 
-            if (rows == 1) {
-                return true;
-            }
-
-            return false;
+            return rows == 1;
         }
 
         public void InsertDatabasePlayers() {
-            if (players == null) {
+            if (Players == null) {
                 return;
             }
-            foreach (var player in players) {
+            foreach (var player in Players) {
                 player.InsertDatabase();
             }
         }
 
+        /// <exception cref="DatabaseUnknownType">Condition.</exception>
+        /// <exception cref="DatabaseQueryFail">Condition.</exception>
         public void InsertChats() {
-            if (chats == null) {
+            if (Chats == null) {
                 return;
             }
 
-            foreach (var chat in chats) {
-                string sql = $"INSERT INTO gamechats (gameid, chatid) values ({gameID}, {chat})";
+            foreach (var chat in Chats) {
+                var sql = $"INSERT INTO gamechats (gameid, chatid) values ({GameId}, {chat})";
                 Console.WriteLine(sql);
-                Program.database.ExecuteNonQuery(sql);
+                Program.Database.ExecuteNonQuery(sql);
             }
         }
 
-        public void InsertChat(long chatID) {
-            if (chats == null) {
+        /// <exception cref="DatabaseUnknownType">Condition.</exception>
+        /// <exception cref="DatabaseQueryFail">Condition.</exception>
+        public void InsertChat(long chatId) {
+            if (Chats == null) {
                 return;
             }
      
-            string sql = $"INSERT INTO gamechats (gameid, chatid) values ({gameID}, {chatID})";
+            var sql = $"INSERT INTO gamechats (gameid, chatid) values ({GameId}, {chatId})";
             Console.WriteLine(sql);
-            Program.database.ExecuteNonQuery(sql);
+            Program.Database.ExecuteNonQuery(sql);
         }
 
+        /// <exception cref="DatabaseQueryFail">Condition.</exception>
+        /// <exception cref="DatabaseUnknownType">Condition.</exception>
         public void InsertFull() {
             InsertDatabase();
             InsertDatabasePlayers();
             InsertChats();
         }
 
-        public static bool CheckDatabase(long gameID) {
-            string sql = $"SELECT * FROM games WHERE gameid = {gameID}";
-            DatabaseReader reader = Program.database.ExecuteReader(sql);
-            bool result = reader.HasRows;
+        /// <exception cref="DatabaseQueryFail">Condition.</exception>
+        public static bool CheckDatabase(long gameId) {
+            var sql = $"SELECT * FROM games WHERE gameid = {gameId}";
+            var reader = Program.Database.ExecuteReader(sql);
+            var result = reader.HasRows;
             reader.Close();
             return result;
         }
 
+        /// <exception cref="DatabaseQueryFail">Condition.</exception>
         public static List<GameData> GetAllGames() {
-            string sql = $"SELECT * FROM games";
-            DatabaseReader reader = Program.database.ExecuteReader(sql);
+            const string sql = "SELECT * FROM games";
+            var reader = Program.Database.ExecuteReader(sql);
 
             var collection = new List<GameData>();
             while (reader.Read()) {
-                var game = new GameData();
+                var game = new GameData
+                {
+                    GameId = reader.GetInt64(0),
+                    Name = reader.GetString(2),
+                    _currentPlayerRaw = reader.GetString(3),
+                    _ownerRaw = reader.GetInt64(1),
+                    Players = new List<PlayerData>(),
+                    Chats = new List<long>()
+                };
 
-                game.gameID = reader.GetInt64(0);
-                game.name = reader.GetString(2);
-                game.currentPlayerRaw = reader.GetString(3);
-                game.ownerRaw = reader.GetInt64(1);
-                game.players = new List<PlayerData>();
-                game.chats = new List<long>();
 
 
                 collection.Add(game);
@@ -107,34 +111,36 @@ namespace CiviBotti {
             reader.Close();
 
             foreach (var game in collection) {
-                game.owner = UserData.Get(game.ownerRaw);
+                game.Owner = UserData.Get(game._ownerRaw);
 
 
-                string sql2 = $"SELECT * FROM players WHERE gameid = {game.gameID}";
-                DatabaseReader reader2 = Program.database.ExecuteReader(sql2);
+                var sql2 = $"SELECT * FROM players WHERE gameid = {game.GameId}";
+                var reader2 = Program.Database.ExecuteReader(sql2);
                 while (reader2.Read()) {
-                    var player = new PlayerData();
-                    player.gameID = reader2.GetInt64(0);
-                    player.steamID = reader2.GetString(1);
-                    player.turnOrder = reader2.GetInt32(2);
+                    var player = new PlayerData
+                    {
+                        GameId = reader2.GetInt64(0),
+                        SteamId = reader2.GetString(1),
+                        TurnOrder = reader2.GetInt32(2)
+                    };
 
-                    if (game.currentPlayerRaw == player.steamID) {
-                        game.currentPlayer = player;
+                    if (game._currentPlayerRaw == player.SteamId) {
+                        game.CurrentPlayer = player;
                     }
-                    game.players.Add(player);
+                    game.Players.Add(player);
                 }
                 reader2.Close();
 
-                foreach (var player in game.players) {
-                    player.user = UserData.GetBySteamID(player.steamID);
+                foreach (var player in game.Players) {
+                    player.User = UserData.GetBySteamId(player.SteamId);
                 }
 
 
-                string sql3 = $"SELECT chatid FROM gamechats WHERE gameid = {game.gameID}";
-                DatabaseReader reader3 = Program.database.ExecuteReader(sql3);
+                var sql3 = $"SELECT chatid FROM gamechats WHERE gameid = {game.GameId}";
+                var reader3 = Program.Database.ExecuteReader(sql3);
                 while (reader3.Read()) {
 
-                    game.chats.Add(reader3.GetInt64(0));
+                    game.Chats.Add(reader3.GetInt64(0));
                 }
                 reader3.Close();
             }
@@ -143,9 +149,9 @@ namespace CiviBotti {
         }
 
         public void RemoveChat(long id) {
-            string sql = $"DELETE FROM gamechats WHERE gameid = {gameID} AND chatid = {id}";
+            var sql = $"DELETE FROM gamechats WHERE gameid = {GameId} AND chatid = {id}";
             Console.WriteLine(sql);
-            int rows = Program.database.ExecuteNonQuery(sql);
+            Program.Database.ExecuteNonQuery(sql);
         }
     }
 }

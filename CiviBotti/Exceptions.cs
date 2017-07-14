@@ -1,16 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CiviBotti {
 
     [Serializable()]
-    public class DatabaseOpenFail : System.Exception {
-        public DatabaseOpenFail() : base() { }
+    public class DatabaseOpenFail : Exception {
+        public DatabaseOpenFail() { }
         public DatabaseOpenFail(string message) : base(message) { }
-        public DatabaseOpenFail(string message, System.Exception inner) : base(message, inner) { }
+        public DatabaseOpenFail(string message, Exception inner) : base(message, inner) { }
 
         // A constructor is needed for serialization when an
         // exception propagates from a remoting server to the client. 
@@ -19,10 +15,10 @@ namespace CiviBotti {
     }
 
     [Serializable()]
-    public class DatabaseQueryFail : System.Exception {
-        public DatabaseQueryFail() : base() { }
+    public class DatabaseQueryFail : Exception {
+        public DatabaseQueryFail() { }
         public DatabaseQueryFail(string message) : base(message) { }
-        public DatabaseQueryFail(string message, System.Exception inner) : base(message, inner) { }
+        public DatabaseQueryFail(string message, Exception inner) : base(message, inner) { }
 
         // A constructor is needed for serialization when an
         // exception propagates from a remoting server to the client. 
@@ -31,10 +27,10 @@ namespace CiviBotti {
     }
 
     [Serializable()]
-    public class DatabaseUnknownType: System.Exception {
-        public DatabaseUnknownType() : base() { }
+    public class DatabaseUnknownType: Exception {
+        public DatabaseUnknownType() { }
         public DatabaseUnknownType(string message) : base(message) { }
-        public DatabaseUnknownType(string message, System.Exception inner) : base(message, inner) { }
+        public DatabaseUnknownType(string message, Exception inner) : base(message, inner) { }
 
         // A constructor is needed for serialization when an
         // exception propagates from a remoting server to the client. 

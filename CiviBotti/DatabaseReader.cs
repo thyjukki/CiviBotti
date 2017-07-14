@@ -1,20 +1,20 @@
-﻿using System;
-using System.Data.SqlClient;
+﻿using System.Data.SqlClient;
 using System.Data.SQLite;
 
 namespace CiviBotti {
     public class DatabaseReader {
-        public SQLiteDataReader sqliteReader;
-        public SqlDataReader sqlDataReader;
-        private Database.DatabaseType type;
+        public SQLiteDataReader SqliteReader;
+        public SqlDataReader SqlDataReader;
+        private readonly Database.DatabaseType _type;
 
+        /// <exception cref="DatabaseUnknownType" accessor="get">HasRows</exception>
         public bool HasRows {
             get {
-                switch (type) {
-                    case Database.DatabaseType.SQLite:
-                        return sqliteReader.HasRows;
-                    case Database.DatabaseType.SQL:
-                        return sqlDataReader.HasRows;
+                switch (_type) {
+                    case Database.DatabaseType.SqLite:
+                        return SqliteReader.HasRows;
+                    case Database.DatabaseType.Sql:
+                        return SqlDataReader.HasRows;
                     default:
                         throw new DatabaseUnknownType("HasRows");
                 }
@@ -22,66 +22,71 @@ namespace CiviBotti {
         }
 
         public DatabaseReader(SQLiteDataReader reader) {
-            this.sqliteReader = reader;
-            type = Database.DatabaseType.SQLite;
+            SqliteReader = reader;
+            _type = Database.DatabaseType.SqLite;
         }
 
         public DatabaseReader(SqlDataReader reader) {
-            this.sqlDataReader = reader;
-            type = Database.DatabaseType.SQL;
+            SqlDataReader = reader;
+            _type = Database.DatabaseType.Sql;
         }
 
+        /// <exception cref="DatabaseUnknownType">HasRows</exception>
         public bool Read() {
-            switch (type) {
-                case Database.DatabaseType.SQLite:
-                    return sqliteReader.Read();
-                case Database.DatabaseType.SQL:
-                    return sqlDataReader.Read();
+            switch (_type) {
+                case Database.DatabaseType.SqLite:
+                    return SqliteReader.Read();
+                case Database.DatabaseType.Sql:
+                    return SqlDataReader.Read();
                 default:
                     throw new DatabaseUnknownType("HasRows");
             }
         }
 
+        /// <exception cref="DatabaseUnknownType">GetInt64</exception>
         public long GetInt64(int v) {
-            switch (type) {
-                case Database.DatabaseType.SQLite:
-                    return sqliteReader.GetInt64(v);
-                case Database.DatabaseType.SQL:
-                    return sqlDataReader.GetInt64(v);
+            switch (_type) {
+                case Database.DatabaseType.SqLite:
+                    return SqliteReader.GetInt64(v);
+                case Database.DatabaseType.Sql:
+                    return SqlDataReader.GetInt64(v);
                 default:
                     throw new DatabaseUnknownType("GetInt64");
             }
         }
 
+        /// <exception cref="DatabaseUnknownType">GetString</exception>
         public string GetString(int v) {
-            switch (type) {
-                case Database.DatabaseType.SQLite:
-                    return sqliteReader.GetString(v);
-                case Database.DatabaseType.SQL:
-                    return sqlDataReader.GetString(v);
+            switch (_type) {
+                case Database.DatabaseType.SqLite:
+                    return SqliteReader.GetString(v);
+                case Database.DatabaseType.Sql:
+                    return SqlDataReader.GetString(v);
                 default:
                     throw new DatabaseUnknownType("GetString");
             }
         }
 
+        /// <exception cref="DatabaseUnknownType">GetInt32</exception>
         public int GetInt32(int v) {
-            switch (type) {
-                case Database.DatabaseType.SQLite:
-                    return sqliteReader.GetInt32(v);
-                case Database.DatabaseType.SQL:
-                    return sqlDataReader.GetInt32(v);
+            switch (_type) {
+                case Database.DatabaseType.SqLite:
+                    return SqliteReader.GetInt32(v);
+                case Database.DatabaseType.Sql:
+                    return SqlDataReader.GetInt32(v);
                 default:
                     throw new DatabaseUnknownType("GetInt32");
             }
         }
 
+        /// <exception cref="DatabaseUnknownType">Close</exception>
         public void Close() {
-            switch (type) {
-                case Database.DatabaseType.SQLite:
-                    sqliteReader.Close();
+            switch (_type) {
+                case Database.DatabaseType.SqLite:
+                    SqliteReader.Close();
                     break;
-                case Database.DatabaseType.SQL:
-                    sqlDataReader.Close();
+                case Database.DatabaseType.Sql:
+                    SqlDataReader.Close();
                     break;
                 default:
                     throw new DatabaseUnknownType("Close");
@@ -89,13 +94,13 @@ namespace CiviBotti {
         }
 
 
-
+        /// <exception cref="DatabaseUnknownType">ToString</exception>
         public override string ToString() {
-            switch (type) {
-                case Database.DatabaseType.SQLite:
-                    return sqliteReader.ToString();
-                case Database.DatabaseType.SQL:
-                    return sqlDataReader.GetDataTypeName(0);
+            switch (_type) {
+                case Database.DatabaseType.SqLite:
+                    return SqliteReader.ToString();
+                case Database.DatabaseType.Sql:
+                    return SqlDataReader.GetDataTypeName(0);
                 default:
                     throw new DatabaseUnknownType("ToString");
             }

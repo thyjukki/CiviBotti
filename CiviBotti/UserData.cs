@@ -2,16 +2,16 @@
 
 namespace CiviBotti {
     public class UserData {
-        public long ID;
-        public string steamID;
-        public string authKey;
+        public long Id;
+        public string SteamId;
+        public string AuthKey;
 
         public bool InsertDatabase(bool open) {
-            bool result = false;
+            var result = false;
 
-            string sql = $"INSERT INTO users (id, steamid, authkey) values ({ID}, '{steamID}', '{authKey}')";
+            var sql = $"INSERT INTO users (id, steamid, authkey) values ({Id}, '{SteamId}', '{AuthKey}')";
             Console.WriteLine(sql);
-            int rows = Program.database.ExecuteNonQuery(sql);
+            var rows = Program.Database.ExecuteNonQuery(sql);
 
             if (rows == 1) {
                 result = true;
@@ -21,43 +21,47 @@ namespace CiviBotti {
         }
 
         public static bool CheckDatabase(long id) {
-            string sql = $"SELECT * FROM users WHERE id = {id}";
-            DatabaseReader reader = Program.database.ExecuteReader(sql);
-            bool result = reader.HasRows;
+            var sql = $"SELECT * FROM users WHERE id = {id}";
+            var reader = Program.Database.ExecuteReader(sql);
+            var result = reader.HasRows;
             reader.Close();
             return result;
         }
 
         public static UserData Get(long id) {
-            string sql = $"SELECT * FROM users WHERE id = {id}";
+            var sql = $"SELECT * FROM users WHERE id = {id}";
             Console.WriteLine(sql);
-            DatabaseReader reader = Program.database.ExecuteReader(sql);
+            var reader = Program.Database.ExecuteReader(sql);
 
 
             UserData user = null;
             if (reader.Read()) {
-                user = new UserData();
-                user.ID = reader.GetInt64(0);
-                user.steamID = reader.GetString(1);
-                user.authKey = reader.GetString(2);
+                user = new UserData
+                {
+                    Id = reader.GetInt64(0),
+                    SteamId = reader.GetString(1),
+                    AuthKey = reader.GetString(2)
+                };
             }
 
             reader.Close();
             return user;
         }
         
-        public static UserData GetBySteamID(string steamid) {
-            string sql = $"SELECT * FROM users WHERE steamid = '{steamid}'";
-            DatabaseReader reader = Program.database.ExecuteReader(sql);
+        public static UserData GetBySteamId(string steamid) {
+            var sql = $"SELECT * FROM users WHERE steamid = '{steamid}'";
+            var reader = Program.Database.ExecuteReader(sql);
 
 
             UserData user = null;
             if (reader.Read()) {
-                user = new UserData();
+                user = new UserData
+                {
+                    Id = reader.GetInt64(0),
+                    SteamId = reader.GetString(1),
+                    AuthKey = reader.GetString(2)
+                };
 
-                user.ID = reader.GetInt64(0);
-                user.steamID = reader.GetString(1);
-                user.authKey = reader.GetString(2);
             }
 
             reader.Close();
@@ -65,7 +69,7 @@ namespace CiviBotti {
         }
 
         public override string ToString() {
-            return base.ToString() +" ("+ steamID + ")";
+            return base.ToString() +" ("+ SteamId + ")";
         }
     }
 }
