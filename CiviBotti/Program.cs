@@ -66,7 +66,24 @@ namespace CiviBotti {
             
             Bot.StartReceiving();
             Tick(null, null);
-            Console.ReadLine();
+            while (true)
+            {
+                var msg = Console.ReadLine();
+
+                if (msg == "quit" || msg == "exit")
+                {
+                    break;
+                }
+
+
+                foreach (var game in Games)
+                {
+                    foreach (var chat in game.Chats)
+                    {
+                        Bot.SendTextMessageAsync(chat, msg);
+                    }
+                }
+            }
             Bot.StopReceiving();
         }
 
