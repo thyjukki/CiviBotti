@@ -406,24 +406,31 @@ namespace CiviBotti {
             } else if (message.Text.StartsWith("/oispa")) {
                 await Bot.SendTextMessageAsync(message.Chat.Id, "Kaljaa?",
                     replyMarkup: new ReplyKeyboardHide());
-            } else if (message.Text.StartsWith("/tee")) {
+            }
+            else if (message.Text.StartsWith("/tee"))
+            {
 
                 await Bot.SendChatActionAsync(chat.Id, ChatAction.RecordAudio);
                 GameData selectedGame = null;
-                foreach (var game in Games) {
-                    foreach (var chatid in game.Chats) {
-                        if (chatid == chat.Id) {
+                foreach (var game in Games)
+                {
+                    foreach (var chatid in game.Chats)
+                    {
+                        if (chatid == chat.Id)
+                        {
                             selectedGame = game;
                             break;
                         }
                     }
 
-                    if (selectedGame != null) {
+                    if (selectedGame != null)
+                    {
                         break;
                     }
                 }
 
-                if (selectedGame == null) {
+                if (selectedGame == null)
+                {
                     await Bot.SendTextMessageAsync(message.Chat.Id, "No game added to this group!");
                     return;
                 }
@@ -432,10 +439,13 @@ namespace CiviBotti {
 
                 var player = selectedGame.CurrentPlayer;
                 string name;
-                if (player.User != null) {
+                if (player.User != null)
+                {
                     var member = await Bot.GetChatAsync(player.User.Id);
                     name = member.Username;
-                } else {
+                }
+                else
+                {
                     name = await GetSteamUserName(player.SteamId);
                 }
 
@@ -451,12 +461,13 @@ namespace CiviBotti {
                 var rnd = new Random(DateTime.Now.Millisecond);
 
 
-                
+
                 string output;
                 var args = message.Text.Split(' ');
                 if (args.Length > 1)
                 {
-                    try {
+                    try
+                    {
                         string parsed = string.Join(" ", args.Skip(1));
                         output = string.Format(parsed, name);
                     }
@@ -464,9 +475,12 @@ namespace CiviBotti {
                     {
                         output = "Älä hajota prkl";
                     }
-                }  else {
+                }
+                else
+                {
                     var rInt = rnd.Next(0, 8);
-                    switch (rInt) {
+                    switch (rInt)
+                    {
                         case 0:
                             output = $"{name} tee vuoros";
                             break;
@@ -630,7 +644,15 @@ namespace CiviBotti {
             try {
                 var gameData = GetGameData(game);
 
-                var current = (await gameData)["CurrentTurn"];
+                JToken current;
+                try
+                {
+                    current = (await gameData)["CurrentTurn"];
+                }
+                catch
+                {
+                    return;
+                }
 
                 if (current == null) {
                     return;
