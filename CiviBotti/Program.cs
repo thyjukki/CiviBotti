@@ -593,15 +593,30 @@ namespace CiviBotti {
                     return;
                 }
 
-                if (!int.TryParse(args[1], out var hour))
+                double hour;
+                if (string.Equals(args[1], "kohta", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    await Bot.SendTextMessageAsync(message.Chat.Id, "Please provide time in hours '/eta hours'!");
-                    return;
+                    var random = new Random();
+                    hour = random.NextDouble();
                 }
+                else
+                {
+                    if (!double.TryParse(args[1], out hour))
+                    {
+                        await Bot.SendTextMessageAsync(message.Chat.Id, "Please provide time in hours '/eta hours'!");
+                        return;
+                    }
+                }
+
 
                 if (hour <= 0)
                 {
                     await Bot.SendTextMessageAsync(message.Chat.Id, "Älä leiki brownstonea");
+                    return;
+                }
+                if (hour >= 168)
+                {
+                    await Bot.SendTextMessageAsync(message.Chat.Id, "Laitappa se vacation mode sit pääl");
                     return;
                 }
 
