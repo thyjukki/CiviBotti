@@ -123,6 +123,7 @@ namespace CiviBotti {
                         SteamId = reader2.GetString(1),
                         TurnOrder = reader2.GetInt32(2)
                     };
+                    DateTime.TryParse(reader2.GetString(3), out player.NextEta);
 
                     if (game._currentPlayerRaw == player.SteamId) {
                         game.CurrentPlayer = player;

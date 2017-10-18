@@ -504,7 +504,81 @@ namespace CiviBotti {
 
                 var file = new FileToSend("output.ogg", stream);
                 await Bot.SendVoiceAsync(message.Chat.Id, file);
-            } else if (message.Text.StartsWith("/help")) {
+            }
+            else if (message.Text.StartsWith("/eta"))
+            {
+                await Bot.SendChatActionAsync(chat.Id, ChatAction.Typing);
+
+                GameData selectedGame = null;
+                foreach (var game in Games)
+                {
+                    foreach (var chatid in game.Chats)
+                    {
+                        if (chatid == chat.Id)
+                        {
+                            selectedGame = game;
+                            break;
+                        }
+                    }
+
+                    if (selectedGame != null)
+                    {
+                        break;
+                    }
+                }
+
+                if (selectedGame == null)
+                {
+                    await Bot.SendTextMessageAsync(message.Chat.Id, "No game added to this group!");
+                    return;
+                }
+
+                if (selectedGame.CurrentPlayer.User == null)
+                {
+                    await Bot.SendTextMessageAsync(message.Chat.Id, "Current player has not registered");
+                    return;
+                }
+                if (selectedGame.CurrentPlayer.User.Id != message.From.Id)
+                {
+                    await Bot.SendTextMessageAsync(message.Chat.Id, "It is not your turn!");
+                    return;
+                }
+
+                var args = message.Text.Split(' ');
+                if (args.Length != 2)
+                {
+                    await Bot.SendTextMessageAsync(message.Chat.Id, "Please provide time in hours '/eta hours'!");
+                    return;
+                }
+
+                if (!int.TryParse(args[1], out var hour))
+                {
+                    await Bot.SendTextMessageAsync(message.Chat.Id, "Please provide time in hours '/eta hours'!");
+                    return;
+                }
+
+                if (hour <= 0)
+                {
+                    await Bot.SendTextMessageAsync(message.Chat.Id, "Älä leiki brownstonea");
+                    return;
+                }
+
+                string name;
+                if (selectedGame.CurrentPlayer.User != null)
+                {
+                    var member = await Bot.GetChatAsync(selectedGame.CurrentPlayer.User.Id);
+                    name = member.Username;
+                }
+                else
+                {
+                    name = await GetSteamUserName(selectedGame.CurrentPlayer.SteamId);
+                }
+                selectedGame.CurrentPlayer.NextEta = DateTime.Now.AddHours(hour);
+
+                selectedGame.CurrentPlayer.UpdateDatabase();
+                await Bot.SendTextMessageAsync(message.Chat.Id, $"{name} eta set to {selectedGame.CurrentPlayer.NextEta}");
+            }
+            else if (message.Text.StartsWith("/help")) {
                 string usage;
                 if (chat.Type == ChatType.Private) {
                     usage = @"CiviBotti:
@@ -567,31 +641,68 @@ namespace CiviBotti {
                     oldPlayerId = game.CurrentPlayer.SteamId;
                 }
                 var currentPlayerId = (string)current["UserId"];
-                
-                if (oldPlayerId != currentPlayerId) {
+
+                if (oldPlayerId != currentPlayerId)
+                {
 
                     string name;
 
                     var user = UserData.GetBySteamId(currentPlayerId);
-                    if (user != null) {
+                    if (user != null)
+                    {
                         var member = await Bot.GetChatAsync(user.Id);
                         name = "@" + member.Username;
-                    } else {
+                    }
+                    else
+                    {
                         name = await GetSteamUserName(currentPlayerId);
                     }
 
-                    foreach (var player in game.Players) {
-                        if (player.SteamId == currentPlayerId) {
-                            game.CurrentPlayer = player;
-                            game.UpdateCurrent();
-                        }
+                    foreach (var player in game.Players)
+                    {
+                        if (player.SteamId != currentPlayerId) continue;
+                        if (game.CurrentPlayer != null) game.CurrentPlayer.NextEta = DateTime.MinValue;
+                        game.CurrentPlayer?.UpdateDatabase();
+                        game.CurrentPlayer = player;
+                        game.UpdateCurrent();
                     }
 
-                    foreach (var chat in game.Chats) {
+                    foreach (var chat in game.Chats)
+                    {
                         await Bot.SendTextMessageAsync(chat, $"It's now your turn {name}!",
-                                replyMarkup: new ReplyKeyboardHide());
+                            replyMarkup: new ReplyKeyboardHide());
                     }
-                    
+
+                }
+                else
+                {
+                    if (game.CurrentPlayer == null) return;
+                    if (game.CurrentPlayer.NextEta == DateTime.MinValue) return;
+                    if (game.CurrentPlayer.NextEta < DateTime.Now)
+                    {
+
+                        string name;
+                        var user = game.CurrentPlayer.User;
+                        if (user != null)
+                        {
+                            var member = await Bot.GetChatAsync(user.Id);
+                            name = "@" + member.Username;
+                        }
+                        else
+                        {
+                            name = await GetSteamUserName(currentPlayerId);
+                        }
+
+                        game.CurrentPlayer.NextEta = DateTime.MinValue;
+                        game.CurrentPlayer.UpdateDatabase();
+                        foreach (var chat in game.Chats)
+                        {
+                            Console.WriteLine(chat);
+                            await Bot.SendTextMessageAsync(chat, $"Aikamääreistä pidetään kiinni {name}",
+                                replyMarkup: new ReplyKeyboardHide());
+                        }
+
+                    }
                 }
             } catch (Exception ex) {
                 Console.WriteLine(ex);
