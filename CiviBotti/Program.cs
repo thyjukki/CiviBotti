@@ -3,7 +3,6 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -149,8 +148,7 @@ namespace CiviBotti {
                     return;
                 }
 
-                long gameId;
-                long.TryParse(args[1], out gameId);
+                long.TryParse(args[1], out var gameId);
                 if (gameId == 0) return;
                 
 
@@ -734,6 +732,7 @@ namespace CiviBotti {
 
                     foreach (var chat in game.Chats)
                     {
+                        Console.WriteLine(chat);
                         await Bot.SendTextMessageAsync(chat, $"It's now your turn {name}!",
                             replyMarkup: new ReplyKeyboardHide());
                     }
@@ -743,30 +742,26 @@ namespace CiviBotti {
                 {
                     if (game.CurrentPlayer == null) return;
                     if (game.CurrentPlayer.NextEta == DateTime.MinValue) return;
-                    if (game.CurrentPlayer.NextEta < DateTime.Now)
+                    if (game.CurrentPlayer.NextEta >= DateTime.Now) return;
+                    string name;
+                    var user = game.CurrentPlayer.User;
+                    if (user != null)
                     {
+                        var member = await Bot.GetChatAsync(user.Id);
+                        name = "@" + member.Username;
+                    }
+                    else
+                    {
+                        name = await GetSteamUserName(currentPlayerId);
+                    }
 
-                        string name;
-                        var user = game.CurrentPlayer.User;
-                        if (user != null)
-                        {
-                            var member = await Bot.GetChatAsync(user.Id);
-                            name = "@" + member.Username;
-                        }
-                        else
-                        {
-                            name = await GetSteamUserName(currentPlayerId);
-                        }
-
-                        game.CurrentPlayer.NextEta = DateTime.MinValue;
-                        game.CurrentPlayer.UpdateDatabase();
-                        foreach (var chat in game.Chats)
-                        {
-                            Console.WriteLine(chat);
-                            await Bot.SendTextMessageAsync(chat, $"Aikamääreistä pidetään kiinni {name}",
-                                replyMarkup: new ReplyKeyboardHide());
-                        }
-
+                    game.CurrentPlayer.NextEta = DateTime.MinValue;
+                    game.CurrentPlayer.UpdateDatabase();
+                    foreach (var chat in game.Chats)
+                    {
+                        Console.WriteLine(chat);
+                        await Bot.SendTextMessageAsync(chat, $"Aikamääreistä pidetään kiinni {name}",
+                            replyMarkup: new ReplyKeyboardHide());
                     }
                 }
             } catch (Exception ex) {
