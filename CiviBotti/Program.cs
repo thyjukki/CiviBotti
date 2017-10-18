@@ -93,6 +93,11 @@ namespace CiviBotti {
             }
         }
 
+        public static bool IsCommand(string a, string b)
+        {
+            return string.Equals(a, b, StringComparison.InvariantCultureIgnoreCase) || string.Equals(a, $"{b}@civi_gmr_bot", StringComparison.InvariantCultureIgnoreCase);
+        }
+
         private static async void BotOnMessageReceived(object sender, MessageEventArgs messageEventArgs) {
             var message = messageEventArgs.Message;
             if (message == null || message.Type != MessageType.TextMessage) return;
@@ -104,7 +109,12 @@ namespace CiviBotti {
 
             }
 
-            if (message.Text.StartsWith("/newgame")) {
+
+            if (!message.Text.StartsWith("/")) return;
+
+            var command = message.Text.Split(' ')[0];
+            
+            if (IsCommand(command,"/newgame")) {
                 await Bot.SendChatActionAsync(chat.Id, ChatAction.Typing);
                 if (chat.Type != ChatType.Private) {
                     await Bot.SendTextMessageAsync(message.Chat.Id, "New game can only be created in private chat!");
@@ -186,7 +196,7 @@ namespace CiviBotti {
                 newGame.InsertFull();
                 Games.Add(newGame);
                 await Bot.SendTextMessageAsync(message.Chat.Id, $"Succesfuly created the game {newGame.Name}!");
-            } else if (message.Text.StartsWith("/register")) {
+            } else if (IsCommand(command,"/register")) {
                 await Bot.SendChatActionAsync(chat.Id, ChatAction.Typing);
                 if (chat.Type != ChatType.Private) {
                     await Bot.SendTextMessageAsync(message.Chat.Id, "Registering can only be created in private chat!");
@@ -227,7 +237,7 @@ namespace CiviBotti {
 
                 }
                 await Bot.SendTextMessageAsync(message.Chat.Id, "Registered with steamid " + steamId);
-            } else if (message.Text.StartsWith("/addgame")) {
+            } else if (IsCommand(command,"/addgame")) {
                 await Bot.SendChatActionAsync(chat.Id, ChatAction.Typing);
                 /*if (chat.Type != ChatType.Private) {
                     await Bot.SendTextMessageAsync(message.Chat.Id, "Registering can only be created in private chat!");
@@ -282,7 +292,7 @@ namespace CiviBotti {
 
                 await Bot.SendTextMessageAsync(message.Chat.Id, $"Added game {selectedGame.Name} to this channel! You will now receive turn notifications.",
                     replyMarkup: new ReplyKeyboardHide());
-            } else if (message.Text.StartsWith("/removegame")) {
+            } else if (IsCommand(command,"/removegame")) {
                 await Bot.SendChatActionAsync(chat.Id, ChatAction.Typing);
 
                 if (chat.Type != ChatType.Private) {
@@ -318,7 +328,7 @@ namespace CiviBotti {
 
                 await Bot.SendTextMessageAsync(message.Chat.Id, $"Removed game {selectedGame.Name} from this channel! You will not receive any more notifications.",
                     replyMarkup: new ReplyKeyboardHide());
-            } else if (message.Text.StartsWith("/order")) {
+            } else if (IsCommand(command,"/order")) {
                 await Bot.SendChatActionAsync(chat.Id, ChatAction.Typing);
                 GameData selectedGame = null;
                 foreach (var game in Games) {
@@ -360,7 +370,7 @@ namespace CiviBotti {
 
                 await Bot.SendTextMessageAsync(message.Chat.Id, $"Order is:\n{result}",
                     replyMarkup: new ReplyKeyboardHide());
-            } else if (message.Text.StartsWith("/next")) {
+            } else if (IsCommand(command,"/next")) {
                 await Bot.SendChatActionAsync(chat.Id, ChatAction.Typing);
                 GameData selectedGame = null;
                 foreach (var game in Games) {
@@ -398,16 +408,17 @@ namespace CiviBotti {
                     name = await GetSteamUserName(player.SteamId);
                 }
 
-                await Bot.SendTextMessageAsync(message.Chat.Id, $"Next player is: {name}",
-                    replyMarkup: new ReplyKeyboardHide());
-            } else if (message.Text.StartsWith("/autocracy") || message.Text.StartsWith("/freedom")) {
-                await Bot.SendTextMessageAsync(message.Chat.Id, "Did you mean /order?",
-                    replyMarkup: new ReplyKeyboardHide());
-            } else if (message.Text.StartsWith("/oispa")) {
-                await Bot.SendTextMessageAsync(message.Chat.Id, "Kaljaa?",
-                    replyMarkup: new ReplyKeyboardHide());
+                await Bot.SendTextMessageAsync(message.Chat.Id, $"Next player is: {name}");
+            } else if (IsCommand(command,"/autocracy") || IsCommand(command,"/freedom")) {
+                await Bot.SendTextMessageAsync(message.Chat.Id, "Did you mean /order?");
+            } else if (IsCommand(command,"/oispa")) {
+                await Bot.SendTextMessageAsync(message.Chat.Id, "Kaljaa?");
             }
-            else if (message.Text.StartsWith("/tee"))
+            else if (IsCommand(command, "/teekkari"))
+            {
+                await Bot.SendTextMessageAsync(message.Chat.Id, "Press /f to pay respect to fallen commands");
+            }
+            else if (IsCommand(command,"/tee"))
             {
 
                 await Bot.SendChatActionAsync(chat.Id, ChatAction.RecordAudio);
@@ -519,7 +530,7 @@ namespace CiviBotti {
                 var file = new FileToSend("output.ogg", stream);
                 await Bot.SendVoiceAsync(message.Chat.Id, file);
             }
-            else if (message.Text.StartsWith("/eta"))
+            else if (IsCommand(command,"/eta"))
             {
                 await Bot.SendChatActionAsync(chat.Id, ChatAction.Typing);
 
@@ -592,7 +603,7 @@ namespace CiviBotti {
                 selectedGame.CurrentPlayer.UpdateDatabase();
                 await Bot.SendTextMessageAsync(message.Chat.Id, $"{name} eta set to {selectedGame.CurrentPlayer.NextEta}");
             }
-            else if (message.Text.StartsWith("/help")) {
+            else if (IsCommand(command,"/help")) {
                 string usage;
                 if (chat.Type == ChatType.Private) {
                     usage = @"CiviBotti:
