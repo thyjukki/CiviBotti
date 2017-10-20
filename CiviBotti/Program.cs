@@ -552,13 +552,9 @@ namespace CiviBotti {
                 GameData selectedGame = null;
                 foreach (var game in Games)
                 {
-                    foreach (var chatid in game.Chats)
+                    if (game.Chats.Any(chatid => chatid == chat.Id))
                     {
-                        if (chatid == chat.Id)
-                        {
-                            selectedGame = game;
-                            break;
-                        }
+                        selectedGame = game;
                     }
 
                     if (selectedGame != null)
@@ -580,43 +576,115 @@ namespace CiviBotti {
                 }
                 if (selectedGame.CurrentPlayer.User.Id != message.From.Id)
                 {
-                    await Bot.SendTextMessageAsync(message.Chat.Id, "It is not your turn!");
+                    string etaname;
+                    if (selectedGame.CurrentPlayer.User != null)
+                    {
+                        var member = await Bot.GetChatAsync(selectedGame.CurrentPlayer.User.Id);
+                        etaname = "@" + member.Username;
+                    }
+                    else
+                    {
+                        etaname = await GetSteamUserName(selectedGame.CurrentPlayer.SteamId);
+                    }
+                    if (selectedGame.CurrentPlayer.NextEta < DateTime.Now)
+                    {
+                        await Bot.SendTextMessageAsync(message.Chat.Id, "It is not your turn!");
+                    }
+                    else
+                    {
+                        var stringbuilder = $"{etaname} aikaa jäljellä";
+                        var remaining = selectedGame.CurrentPlayer.NextEta - DateTime.Now;
+                        var remainingMinutes = remaining.Minutes % 60;
+                        var remainingHours = remaining.Hours % 24;
+                        var remainingDays = (remaining.Hours - remainingHours) /24;
+                        if (remainingDays > 0)
+                        {
+                            stringbuilder += $" {remainingDays}";
+                            if (remainingDays == 1)
+                            {
+                                stringbuilder += " päivä";
+                            }
+                            else
+                            {
+                                stringbuilder += " päivää";
+                            }
+                        }
+                        if (remainingHours > 0)
+                        {
+                            stringbuilder += $" {remainingHours}";
+                            if (remainingHours == 1)
+                            {
+                                stringbuilder += " tunti";
+                            }
+                            else
+                            {
+                                stringbuilder += " tuntia";
+                            }
+                        }
+                        if (remainingMinutes > 0)
+                        {
+                            stringbuilder += $" {remainingMinutes}";
+                            if (remainingMinutes == 1)
+                            {
+                                stringbuilder += " minuutti";
+                            }
+                            else
+                            {
+                                stringbuilder += " minuuttia";
+                            }
+                        }
+                        await Bot.SendTextMessageAsync(message.Chat.Id, stringbuilder);
+                    }
                     return;
                 }
 
                 var args = message.Text.Split(' ');
                 if (args.Length != 2)
                 {
-                    await Bot.SendTextMessageAsync(message.Chat.Id, "Please provide time in hours '/eta hours'!");
+                    await Bot.SendTextMessageAsync(message.Chat.Id, "Please provide time in hours '/eta hours(:minutes(:day)) or /eta nyt|kohta'!");
                     return;
                 }
 
-                double hour;
+                var hour = 0;
+                var minute = 0;
+                var day = 0;
                 if (string.Equals(args[1], "kohta", StringComparison.InvariantCultureIgnoreCase))
                 {
+                    hour = DateTime.Now.Hour + 1;
+                    minute = DateTime.Now.Minute;
+                }
+                else if (string.Equals(args[1], "nyt", StringComparison.InvariantCultureIgnoreCase))
+                {
                     var random = new Random();
-                    hour = random.NextDouble();
+                    hour = DateTime.Now.Hour;
+                    minute = DateTime.Now.Minute + 10;
                 }
                 else
                 {
-                    if (!double.TryParse(args[1], out hour))
+                    var hoursmins = args[1].Split(':');
+                    if (!int.TryParse(hoursmins[0], out hour))
                     {
-                        await Bot.SendTextMessageAsync(message.Chat.Id, "Please provide time in hours '/eta hours'!");
+                        await Bot.SendTextMessageAsync(message.Chat.Id, "Please provide time in hours '/eta hours(:minutes(:day)) or /eta nyt|kohta'!");
                         return;
+                    }
+                    if (hoursmins.Length > 1)
+                    {
+                        if (!int.TryParse(hoursmins[1], out minute))
+                        {
+                            await Bot.SendTextMessageAsync(message.Chat.Id, "Please provide time in hours '/eta hours(:minutes(:day)) or /eta nyt|kohta'!");
+                            return;
+                        }
+                        if (hoursmins.Length > 2)
+                        {
+                            if (!int.TryParse(hoursmins[2], out day))
+                            {
+                                await Bot.SendTextMessageAsync(message.Chat.Id, "Please provide time in hours '/eta hours(:minutes(:day)) or /eta nyt|kohta'!");
+                                return;
+                            }
+                        }
                     }
                 }
 
-
-                if (hour <= 0)
-                {
-                    await Bot.SendTextMessageAsync(message.Chat.Id, "Älä leiki brownstonea");
-                    return;
-                }
-                if (hour >= 168)
-                {
-                    await Bot.SendTextMessageAsync(message.Chat.Id, "Laitappa se vacation mode sit pääl");
-                    return;
-                }
 
                 string name;
                 if (selectedGame.CurrentPlayer.User != null)
@@ -628,10 +696,24 @@ namespace CiviBotti {
                 {
                     name = await GetSteamUserName(selectedGame.CurrentPlayer.SteamId);
                 }
-                selectedGame.CurrentPlayer.NextEta = DateTime.Now.AddHours(hour);
 
+                var eta = DateTime.Today.AddDays(day).AddHours(hour).AddMinutes(minute);
+
+                
+                if (eta <= DateTime.Now)
+                {
+                    await Bot.SendTextMessageAsync(message.Chat.Id, "Älä leiki brownstonea");
+                    return;
+                }
+                if (eta >= DateTime.Now.AddDays(7))
+                {
+                    await Bot.SendTextMessageAsync(message.Chat.Id, "Laitappa se vacation mode sit pääl");
+                    return;
+                }
+
+                selectedGame.CurrentPlayer.NextEta = eta;
                 selectedGame.CurrentPlayer.UpdateDatabase();
-                await Bot.SendTextMessageAsync(message.Chat.Id, $"{name} eta set to {selectedGame.CurrentPlayer.NextEta}");
+                await Bot.SendTextMessageAsync(message.Chat.Id, $"{name} eta set to {selectedGame.CurrentPlayer.NextEta:HH:mm ddd}");
             }
             else if (IsCommand(command,"/help")) {
                 string usage;
