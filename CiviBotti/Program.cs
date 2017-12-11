@@ -276,12 +276,12 @@ namespace CiviBotti
                         continue;
                     }
                 }
-                var hourGroup = Regex.Match(div.InnerHtml, "(\\d+) hours");
+                var hourGroup = Regex.Match(div.InnerHtml, "(\\d+) hour");
                 var hour = 0;
                 if (hourGroup.Success) {
                     int.TryParse(hourGroup.Groups[1].Value, out hour);
                 }
-                var minuteGroup = Regex.Match(div.InnerHtml, "(\\d+) minutes");
+                var minuteGroup = Regex.Match(div.InnerHtml, "(\\d+) minute");
                 var minute = 0;
                 if (minuteGroup.Success) {
                     int.TryParse(minuteGroup.Groups[1].Value, out minute);
@@ -295,7 +295,7 @@ namespace CiviBotti
                         stringbuilder += " päivää";
                     }
                 }*/
-                string stringbuilder = "";
+                var stringbuilder = "";
                 if (hour > 0) {
                     stringbuilder += $" {hour}";
                     if (hour == 1) {
@@ -784,12 +784,12 @@ namespace CiviBotti
                         continue;
                     }
                 }
-                var hourGroup = Regex.Match(div.InnerHtml, "(\\d+) hours");
+                var hourGroup = Regex.Match(div.InnerHtml, "(\\d+) hour");
                 var hour = 0;
                 if (hourGroup.Success) {
                     int.TryParse(hourGroup.Groups[1].Value, out hour);
                 }
-                var minuteGroup = Regex.Match(div.InnerHtml, "(\\d+) minutes");
+                var minuteGroup = Regex.Match(div.InnerHtml, "(\\d+) minute");
                 var minute = 0;
                 if (minuteGroup.Success) {
                     int.TryParse(minuteGroup.Groups[1].Value, out minute);
@@ -799,7 +799,7 @@ namespace CiviBotti
             return null;
         }
 
-        private static async void PollTurn(GameData game) {
+        private static void PollTurn(GameData game) {
             try {
                 var gameData = GetGameData(game);
 
@@ -861,8 +861,9 @@ namespace CiviBotti
                         if (!turnTimer.HasValue) return;
                         if (!(game.TurnStarted + turnTimer.Value > DateTime.Now)) return;
                         game.TurntimerNotified = true;
+                        game.UpdateCurrent();
                         foreach (var chat in game.Chats) {
-                            _bot.SendText(chat, $"Turn timer kärsii {game.CurrentPlayer.Name}");
+                            _bot.SendText(chat, $"Turn timer kärsii @{game.CurrentPlayer.Name}");
                         }
                     } else {
                         if (game.CurrentPlayer.NextEta >= DateTime.Now) {
@@ -872,7 +873,7 @@ namespace CiviBotti
                         game.CurrentPlayer.NextEta = DateTime.MinValue;
                         game.CurrentPlayer.UpdateDatabase();
                         foreach (var chat in game.Chats) {
-                            _bot.SendText(chat, $"Aikamääreistä pidetään kiinni {game.CurrentPlayer.Name}");
+                            _bot.SendText(chat, $"Aikamääreistä pidetään kiinni @{game.CurrentPlayer.Name}");
                         }
                     }
                 }

@@ -79,6 +79,18 @@ namespace CiviBotti {
             }
         }
 
+        /// <exception cref="DatabaseUnknownType">GetInt32</exception>
+        public bool GetBit(int v) {
+            switch (_type) {
+                case Database.DatabaseType.SqLite:
+                    return SqliteReader.GetBoolean(v);
+                case Database.DatabaseType.Sql:
+                    return SqlDataReader.GetBoolean(v);
+                default:
+                    throw new DatabaseUnknownType("GetInt32");
+            }
+        }
+
         /// <exception cref="DatabaseUnknownType">Close</exception>
         public void Close() {
             switch (_type) {
