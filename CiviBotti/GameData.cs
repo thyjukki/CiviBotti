@@ -8,6 +8,8 @@ namespace CiviBotti {
         private long _ownerRaw;
         public List<long> Chats;
         public PlayerData CurrentPlayer;
+        public DateTime TurnStarted;
+        public bool TurntimerNotified;
         private string _currentPlayerRaw;
 
         public List<PlayerData> Players;

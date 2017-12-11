@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Args;
 using Telegram.Bot.Exceptions;
@@ -13,6 +12,8 @@ namespace CiviBotti
         #region variables
         private readonly TelegramBotClient _bot;
 
+        public string Name { get; }
+        public string TechnicalName { get; }
         #endregion
 
         #region constructors
@@ -23,11 +24,10 @@ namespace CiviBotti
             _bot.OnReceiveError += BotOnReceiveError;
 
             Name = _bot.GetMeAsync().Result.Username;
-
+            TechnicalName = _bot.GetMeAsync().Result.FirstName;
             Console.Title = Name;
         }
 
-        public string Name { get; }
 
         #endregion
 
@@ -42,10 +42,10 @@ namespace CiviBotti
             _bot.StopReceiving();
         }
 
-        public async Task SendText(long chat, string msg) {
+        public void SendText(long chat, string msg) {
             try
             {
-                await _bot.SendTextMessageAsync(chat, msg);
+                _bot.SendTextMessageAsync(chat, msg);
             }
             catch (ApiRequestException ex)
             {
@@ -53,11 +53,15 @@ namespace CiviBotti
             }
         }
 
-        public async Task SetChatAction(long chatId, ChatAction action)
+        public void SendText(Chat chat, string msg) {
+            SendText(chat.Id, msg);
+        }
+
+        public void SetChatAction(long chatId, ChatAction action)
         {
             try
             {
-                await _bot.SendChatActionAsync(chatId, action);
+                _bot.SendChatActionAsync(chatId, action);
             }
             catch (ApiRequestException ex)
             {
@@ -65,11 +69,18 @@ namespace CiviBotti
             }
         }
 
-        public async Task<ChatMember[]> GetAdministrators(long chatId)
+        public ChatMember[] GetAdministrators(long chatId)
         {
-            return await _bot.GetChatAdministratorsAsync(chatId);
+            return _bot.GetChatAdministratorsAsync(chatId).Result;
         }
 
+        public Chat GetChat(long userId) {
+            return _bot.GetChatAsync(userId).Result;
+        }
+
+        public Message SendVoice(long chatId, FileToSend file) {
+            return _bot.SendVoiceAsync(chatId, file).Result;
+        }
         #endregion
 
 
@@ -80,13 +91,12 @@ namespace CiviBotti
             Console.WriteLine("BotOnReceiveError:\n" + receiveErrorEventArgs.ApiRequestException.Message);
         }
 
-        private async void BotOnCallbackQueryReceived(object sender, CallbackQueryEventArgs callbackQueryEventArgs) {
-            await _bot.AnswerCallbackQueryAsync(callbackQueryEventArgs.CallbackQuery.Id,
-                $"Received {callbackQueryEventArgs.CallbackQuery.Data}");
+        private void BotOnCallbackQueryReceived(object sender, CallbackQueryEventArgs callbackQueryEventArgs) {
+            _bot.AnswerCallbackQueryAsync(callbackQueryEventArgs.CallbackQuery.Id, $"Received {callbackQueryEventArgs.CallbackQuery.Data}");
         }
 
 
-        private static void BotOnMessageReceived(object sender, MessageEventArgs messageEventArgs) {
+        private void BotOnMessageReceived(object sender, MessageEventArgs messageEventArgs) {
             var message = messageEventArgs.Message;
             if (message == null || message.Type != MessageType.TextMessage) return;
             
@@ -94,18 +104,16 @@ namespace CiviBotti
 
 
             if (!message.Text.StartsWith("/")) return;
-            
-            Program.ParseCommand(message);
+
+            var commandSplit = message.Text.Split(' ')[0].Split('@');
+            if (commandSplit.Length == 2) {
+                if (!string.Equals(commandSplit[1], TechnicalName, StringComparison.OrdinalIgnoreCase)) return;
+            }
+            var command = commandSplit[0].Split('/')[1];
+            Program.ParseCommand(command, message);
         }
 
         #endregion
 
-            public async Task<Chat> GetChat(long userId) {
-            return await _bot.GetChatAsync(userId);
-        }
-
-        public async Task<Message> SendVoice(long chatId, FileToSend file) {
-            return await _bot.SendVoiceAsync(chatId, file);
-        }
     }
 }

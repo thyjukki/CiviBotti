@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Data.Entity.ModelConfiguration.Conventions;
 
 namespace CiviBotti
 {
@@ -9,6 +10,8 @@ namespace CiviBotti
         public UserData User;
         public int TurnOrder;
         public DateTime NextEta;
+
+        public string Name { get; private set; }
 
         public bool InsertDatabase()
         {
@@ -47,6 +50,10 @@ namespace CiviBotti
             var result = reader.HasRows;
             reader.Close();
             return result;
+        }
+
+        public void SetName(string name) {
+            Name = name;
         }
     }
 }

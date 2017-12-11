@@ -29,6 +29,8 @@ namespace CiviBotti
         [Description("eta")]
         Eta,
         [Description("help")]
-        Help
+        Help,
+        [Description("turntimer")]
+        Turntimer
     }
 }
