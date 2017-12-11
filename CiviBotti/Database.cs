@@ -48,6 +48,8 @@ namespace CiviBotti {
                         command.ExecuteNonQuery();
                         command = new SQLiteCommand("CREATE TABLE gamechats (gameid bigint NOT NULL, chatid bigint NOT NULL, PRIMARY KEY(gameid, chatid))", _sqliteConnection);
                         command.ExecuteNonQuery();
+                        command = new SQLiteCommand("CREATE TABLE quotes (gameid bigint NOT NULL, chatid bigint NOT NULL, data TEXT, PRIMARY KEY(gameid, chatid))", _sqliteConnection);
+                        command.ExecuteNonQuery();
                         _sqliteConnection.Close();
                     } else {
                         _sqliteConnection = new SQLiteConnection("Data Source=database.sqlite;Version=3;");
