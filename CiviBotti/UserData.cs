@@ -68,8 +68,6 @@ namespace CiviBotti {
             return user;
         }
 
-        public override string ToString() {
-            return base.ToString() +" ("+ SteamId + ")";
-        }
+        public override string ToString() => $"User: {SteamId}";
     }
 }

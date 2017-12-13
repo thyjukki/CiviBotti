@@ -23,8 +23,8 @@ namespace CiviBotti
             _bot.OnMessage += BotOnMessageReceived;
             _bot.OnReceiveError += BotOnReceiveError;
 
-            Name = _bot.GetMeAsync().Result.Username;
-            TechnicalName = _bot.GetMeAsync().Result.FirstName;
+            Name = _bot.GetMeAsync().Result.FirstName;
+            TechnicalName = _bot.GetMeAsync().Result.Username;
             Console.Title = Name;
         }
 

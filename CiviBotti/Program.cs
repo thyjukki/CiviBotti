@@ -43,26 +43,28 @@ namespace CiviBotti
             aTimer.Enabled = true;
             aTimer.Start();
 
-
             Games = GameData.GetAllGames();
+            var players = (from game in Games from player in game.Players select player.SteamId).ToList();
+            var playerSteamNames = GetSteamUserNames(players);
+
             foreach (var game in Games) {
-                Console.WriteLine(game.GameId + " " + game.Owner);
+                Console.WriteLine($"{game} {game.Owner}");
                 Console.WriteLine(" chats:");
                 foreach (var chat in game.Chats) {
                     Console.WriteLine("  -" + chat);
                 }
                 Console.WriteLine(" players:");
                 foreach (var player in game.Players) {
-                    Console.WriteLine($"  -{player.SteamId} ({player.TurnOrder}) {player.User}");
+                    playerSteamNames.TryGetValue(player.SteamId, out player.SteamName);
 
-                    
+
                     if (player.User != null) {
                         var member = _bot.GetChat(player.User.Id);
-                        player.SetName(member.Username);
-                    } else {
-                        player.SetName(GetSteamUserName(player.SteamId));
+                        player.TgName = member.Username;
                     }
+                    Console.WriteLine($"  -{player} ({player.TurnOrder}) {player.User}");
                 }
+                Console.WriteLine("\n");
             }
 
             _bot.StartReceiving();
@@ -173,6 +175,8 @@ namespace CiviBotti
                 Console.WriteLine(playerData.SteamId + " " + playerData.TurnOrder);
             }
 
+            newGame.TurnStarted = current["Started"].ToObject<DateTime>().AddHours(2);
+            newGame.TurntimerNotified = true;
             newGame.InsertFull();
             Games.Add(newGame);
             _bot.SendText(message.Chat.Id, $"Succesfuly created the game {newGame.Name}!");
@@ -312,7 +316,7 @@ namespace CiviBotti
                         stringbuilder += " minuuttia";
                     }
                 }
-                _bot.SendText(chat, $"{player.Name} turntimer {stringbuilder}");
+                _bot.SendText(chat, $"{player.Nametag} turntimer {stringbuilder}");
                 return;
             }
         }
@@ -464,7 +468,7 @@ namespace CiviBotti
             }
             var player = selectedGame.Players[next];
 
-            _bot.SendText(message.Chat.Id, $"Next player is: {player.Name}");
+            _bot.SendText(message.Chat.Id, $"Next player is: {player.Nametag}");
         }
 
         private static void Tee(Message message, Chat chat) {
@@ -582,7 +586,7 @@ namespace CiviBotti
                 if (selectedGame.CurrentPlayer.NextEta < DateTime.Now) {
                     _bot.SendText(message.Chat.Id, "It is not your turn!");
                 } else {
-                    var stringbuilder = $"{selectedGame.CurrentPlayer.Name} aikaa jäljellä";
+                    var stringbuilder = $"{selectedGame.CurrentPlayer.Nametag} aikaa jäljellä";
                     var remaining = selectedGame.CurrentPlayer.NextEta - DateTime.Now;
                     var remainingMinutes = remaining.Minutes % 60;
                     var remainingHours = remaining.Hours % 24;
@@ -820,6 +824,7 @@ namespace CiviBotti
                     oldPlayerId = game.CurrentPlayer.SteamId;
                 }
                 var currentPlayerId = (string) current["UserId"];
+                game.TurnStarted = current["Started"].ToObject<DateTime>().AddHours(2);
 
                 if (oldPlayerId != currentPlayerId) {
 
@@ -835,17 +840,15 @@ namespace CiviBotti
                         game.TurntimerNotified = false;
                         game.TurnStarted = DateTime.Now;
                         game.UpdateCurrent();
-
-                        if (player.User == null) {
-                            player.SetName(GetSteamUserName(player.SteamId));
-                        }
+                        
+                        player.SteamName = GetSteamUserName(player.SteamId);
                         break;
                     }
 
                     foreach (var chat in game.Chats) {
                         Console.WriteLine(chat);
                         if (game.CurrentPlayer != null) {
-                            _bot.SendText(chat, $"It's now your turn {game.CurrentPlayer.Name}!");
+                            _bot.SendText(chat, $"It's now your turn {game.CurrentPlayer.Nametag}!");
                         } else {
                             _bot.SendText(chat, "It's now your turn waitwhatthishsouldntbehappening?!");
                         }
@@ -859,11 +862,11 @@ namespace CiviBotti
                         if (game.TurntimerNotified) return;
                         var turnTimer = GetTurntimer(game, game.CurrentPlayer);
                         if (!turnTimer.HasValue) return;
-                        if (!(game.TurnStarted + turnTimer.Value > DateTime.Now)) return;
+                        if (!(game.TurnStarted + turnTimer.Value < DateTime.Now)) return;
                         game.TurntimerNotified = true;
                         game.UpdateCurrent();
                         foreach (var chat in game.Chats) {
-                            _bot.SendText(chat, $"Turn timer kärsii @{game.CurrentPlayer.Name}");
+                            _bot.SendText(chat, $"Turn timer kärsii {game.CurrentPlayer.Nametag}");
                         }
                     } else {
                         if (game.CurrentPlayer.NextEta >= DateTime.Now) {
@@ -873,7 +876,7 @@ namespace CiviBotti
                         game.CurrentPlayer.NextEta = DateTime.MinValue;
                         game.CurrentPlayer.UpdateDatabase();
                         foreach (var chat in game.Chats) {
-                            _bot.SendText(chat, $"Aikamääreistä pidetään kiinni @{game.CurrentPlayer.Name}");
+                            _bot.SendText(chat, $"Aikamääreistä pidetään kiinni {game.CurrentPlayer.Nametag}");
                         }
                     }
                 }
@@ -905,7 +908,8 @@ namespace CiviBotti
             return html;
         }
 
-        public static string GetSteamUserName(string steamid) {
+        public static string GetSteamUserName(string steamid)
+        {
             var url =
                 $"http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=E2C1F453B82A8F42092118E4B3F55037&steamids={steamid}";
 
@@ -916,6 +920,21 @@ namespace CiviBotti
             var players = json["response"]["players"];
 
             return players.Count() != 1 ? "UNKNOWN" : players.First["personaname"].ToString();
+        }
+
+        public static Dictionary<string, string> GetSteamUserNames(List<string> steamid) {
+            var url =
+                $"http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=E2C1F453B82A8F42092118E4B3F55037&steamids={string.Join(",", steamid.Distinct())}";
+
+            var request = HttpInstance.GetAsync(url).Result;
+            var html = request.Content.ReadAsStringAsync().Result;
+
+            var json = JObject.Parse(html);
+            var players = json["response"]["players"].ToArray();
+
+            var dic = players.ToDictionary(player => player["steamid"].ToString(), player => player["personaname"].ToString());
+
+            return dic;
         }
     }
 }

@@ -11,7 +11,11 @@ namespace CiviBotti
         public int TurnOrder;
         public DateTime NextEta;
 
-        public string Name { get; private set; }
+        public string SteamName = "";
+        public string TgName = "";
+
+        public string Name => ((TgName?.Length > 0) ? TgName : ((SteamName?.Length > 0) ? SteamName : SteamId));
+        public string Nametag => ((TgName?.Length > 0) ? "@" + TgName : ((SteamName?.Length > 0) ? SteamName : SteamId));
 
         public bool InsertDatabase()
         {
@@ -52,8 +56,6 @@ namespace CiviBotti
             return result;
         }
 
-        public void SetName(string name) {
-            Name = name;
-        }
+        public override string ToString() => $"Player: {Name}";
     }
 }

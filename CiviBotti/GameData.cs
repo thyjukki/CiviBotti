@@ -18,7 +18,7 @@ namespace CiviBotti {
         /// <exception cref="DatabaseUnknownType">Condition.</exception>
         /// <exception cref="DatabaseQueryFail">Condition.</exception>
         public bool InsertDatabase() {
-            var sql = $"INSERT INTO games (gameid, ownerid, name, currentp, started, notified) values ({GameId}, {Owner.Id}, '{Name}', {CurrentPlayer.SteamId}, '{TurnStarted}', '{TurntimerNotified}')";
+            var sql = $"INSERT INTO games (gameid, ownerid, name, currentp, notified) values ({GameId}, {Owner.Id}, '{Name}', {CurrentPlayer.SteamId}, '{(TurntimerNotified ? 1 : 0)}')";
             Console.WriteLine(sql);
             var rows = Program.Database.ExecuteNonQuery(sql);
 
@@ -29,7 +29,7 @@ namespace CiviBotti {
         /// <exception cref="DatabaseUnknownType">Condition.</exception>
         /// <exception cref="DatabaseQueryFail">Condition.</exception>
         public bool UpdateCurrent() {
-            var sql = $"UPDATE games SET currentp = {CurrentPlayer.SteamId}, started = {CurrentPlayer.SteamId}, notified = {TurntimerNotified} WHERE gameid = {GameId}";
+            var sql = $"UPDATE games SET currentp = {CurrentPlayer.SteamId}, notified = {(TurntimerNotified ? 1 : 0)} WHERE gameid = {GameId}";
 
             Console.WriteLine(sql);
             var rows = Program.Database.ExecuteNonQuery(sql);
@@ -106,7 +106,6 @@ namespace CiviBotti {
                     Chats = new List<long>(),
                     TurntimerNotified = reader.GetBit(4)
                 };
-                DateTime.TryParse(reader.GetString(5), out game.TurnStarted);
 
 
 
@@ -158,5 +157,7 @@ namespace CiviBotti {
             Console.WriteLine(sql);
             Program.Database.ExecuteNonQuery(sql);
         }
+
+        public override string ToString() => $"{Name} ({GameId})";
     }
 }
