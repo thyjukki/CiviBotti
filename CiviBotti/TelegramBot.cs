@@ -78,8 +78,14 @@ namespace CiviBotti
             return _bot.GetChatAsync(userId).Result;
         }
 
-        public Message SendVoice(long chatId, FileToSend file) {
+        public Message SendVoice(long chatId, FileToSend file)
+        {
             return _bot.SendVoiceAsync(chatId, file).Result;
+        }
+
+        public Message SendFile(long chatId, FileToSend file)
+        {
+            return _bot.SendDocumentAsync(chatId, file).Result;
         }
         #endregion
 

@@ -1,10 +1,23 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace CiviBotti {
     public class UserData {
         public long Id;
         public string SteamId;
         public string AuthKey;
+
+        private string _name;
+        public string Name {
+            get {
+                if (Name == string.Empty) {
+                    _name = Program.Bot.GetChat(Id).Username;
+                }
+                return _name;
+            }
+        }
+
+        public List<SubData> Subs;
 
         public bool InsertDatabase(bool open) {
             var result = false;
@@ -40,7 +53,8 @@ namespace CiviBotti {
                 {
                     Id = reader.GetInt64(0),
                     SteamId = reader.GetString(1),
-                    AuthKey = reader.GetString(2)
+                    AuthKey = reader.GetString(2),
+                    Subs = SubData.Get(reader.GetInt64(0))
                 };
             }
 

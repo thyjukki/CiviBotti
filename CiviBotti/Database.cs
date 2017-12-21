@@ -42,13 +42,15 @@ namespace CiviBotti {
                         _sqliteConnection.Open();
                         var command = new SQLiteCommand("CREATE TABLE users (id bigint NOT NULL, steamid VARCHAR(20), authkey VARCHAR(20), PRIMARY KEY(id))", _sqliteConnection);
                         command.ExecuteNonQuery();
-                        command = new SQLiteCommand("CREATE TABLE games (gameid bigint NOT NULL, ownerid NOT NULL, name VARCHAR(40), currentp VARCHAR(20), PRIMARY KEY(gameid), FOREIGN KEY(ownerid) REFERENCES users(id))", _sqliteConnection);
+                        command = new SQLiteCommand("CREATE TABLE games (gameid bigint NOT NULL, ownerid NOT NULL, name VARCHAR(40), currentp VARCHAR(20), notified BIT NOT NULL DEFAULT '1', PRIMARY KEY(gameid), FOREIGN KEY(ownerid) REFERENCES users(id))", _sqliteConnection);
                         command.ExecuteNonQuery();
                         command = new SQLiteCommand("CREATE TABLE players (gameid bigint NOT NULL, steamid VARCHAR(20), turnorder INT, nexteta VARCHAR(20), PRIMARY KEY(gameid, steamid))", _sqliteConnection);
                         command.ExecuteNonQuery();
                         command = new SQLiteCommand("CREATE TABLE gamechats (gameid bigint NOT NULL, chatid bigint NOT NULL, PRIMARY KEY(gameid, chatid))", _sqliteConnection);
                         command.ExecuteNonQuery();
                         command = new SQLiteCommand("CREATE TABLE quotes (gameid bigint NOT NULL, chatid bigint NOT NULL, data TEXT, PRIMARY KEY(gameid, chatid))", _sqliteConnection);
+                        command.ExecuteNonQuery();
+                        command = new SQLiteCommand("CREATE TABLE subs (gameid bigint NOT NULL, id bigint NOT NULL, subid bigint NOT NULL, times int NOT NULL, PRIMARY KEY(gameid, id, subid))", _sqliteConnection);
                         command.ExecuteNonQuery();
                         _sqliteConnection.Close();
                     } else {

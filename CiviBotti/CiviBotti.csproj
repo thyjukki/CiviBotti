@@ -83,6 +83,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Command.cs" />
+    <Compile Include="SubData.cs" />
     <Compile Include="TelegramBot.cs" />
     <Compile Include="Database.cs" />
     <Compile Include="DatabaseReader.cs" />
@@ -97,6 +98,7 @@
     <None Include="App.config" />
     <None Include="bot.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <SubType>Designer</SubType>
     </None>
     <None Include="packages.config" />
   </ItemGroup>
