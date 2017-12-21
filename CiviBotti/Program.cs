@@ -12,6 +12,7 @@ using System.Timers;
 using Newtonsoft.Json.Linq;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using Telegram.Bot.Types.ReplyMarkups;
 using HtmlDocument = HtmlAgilityPack.HtmlDocument;
 using Message = Telegram.Bot.Types.Message;
 using Timer = System.Timers.Timer;
@@ -44,6 +45,7 @@ namespace CiviBotti
             aTimer.Start();
 
             Games = GameData.GetAllGames();
+            Games.ForEach(_ => _.GetGameData());
             var players = (from game in Games from player in game.Players select player.SteamId).ToList();
             var playerSteamNames = GetSteamUserNames(players);
 
@@ -59,8 +61,7 @@ namespace CiviBotti
 
 
                     if (player.User != null) {
-                        var member = Bot.GetChat(player.User.Id);
-                        player.TgName = member.Username;
+                        player.TgName = Bot.GetChat(player.User.Id)?.Username;
                     }
                     Console.WriteLine($"  -{player} ({player.TurnOrder}) {player.User}");
                 }
@@ -129,7 +130,6 @@ namespace CiviBotti
                 Bot.SendText(message.Chat.Id, "Game has already been created!");
                 return;
             }
-
 
             var newGame = new GameData {
                 Owner = UserData.Get(message.From.Id),
@@ -238,11 +238,276 @@ namespace CiviBotti
                     Turntimer(chat);
                     break;
                 case Command.Listsubs:
-                    ListSubs();
+                    ListSubs(message, chat);
+                    break;
+                case Command.Addsub:
+                    AddSub(message, chat);
+                    break;
+                case Command.Removesub:
+                    RemoveSub(message, chat);
+                    break;
+                case Command.Doturn:
+                    DoTurn(message, chat);
+                    break;
+                case Command.Submitturn:
+                    SubmitTurn(message, chat);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+        }
+
+        private static void SubmitTurn(Message message, Chat chat) {
+            Bot.SetChatAction(message.Chat.Id, ChatAction.Typing);
+
+            UserData callerUser = null;
+
+            foreach (var game in Games) {
+                callerUser = game.Players.Find(_ => _.User != null && _.User.Id == message.From.Id).User;
+            }
+
+            if (callerUser == null) {
+                Bot.SendText(chat, "You are not registered in any games");
+                return;
+            }
+
+            void GetSelectedCallback(Message msg)
+            {
+                foreach (var game in Games) {
+                    var user = game.CurrentPlayer.User;
+                    if (user == null) {
+                        continue;
+                    }
+                    if (!user.Subs.Exists(_ => _.SubId == callerUser.Id)) {
+                        continue;
+                    }
+                    if ($"{user.Name}@{game.Name}" == msg.Text) {
+                        Bot.AddReplyGet(message.From.Id, chat.Id, GetUploadCallback);
+                        Bot.SendText(message.Chat.Id, "Upload the file");
+                    }
+                }
+            }
+
+            void GetUploadCallback(Message msg) {
+                if (msg.Type != MessageType.DocumentMessage) {
+                    Bot.AddReplyGet(message.From.Id, chat.Id, GetUploadCallback);
+                    Bot.SendText(message.Chat.Id, "Respond by uploading a file");
+                    return;
+                }
+
+                var tes = msg.Document.FileStream.ReadAsync().Result;//FINISHME
+            }
+
+            var test = new List<KeyboardButton>();
+            foreach (var game in Games) {
+                var user = game.CurrentPlayer.User;
+                if (user == null) {
+                    continue;
+                }
+                if (user.Subs.Exists(_ => _.SubId == callerUser.Id)) test.Add(new KeyboardButton($"{user.Name}@{game.Name}"));
+            }
+
+            if (test.Count == 0) {
+                Bot.SendText(message.Chat.Id, "You can not submit anyones turn at the moment");
+                return;
+            }
+
+            test.Add(new KeyboardButton("cancel"));
+
+            var forceReply = new ReplyKeyboardMarkup(test.ToArray()) {
+                OneTimeKeyboard = true,
+                Selective = true
+            };
+
+            Bot.AddReplyGet(message.From.Id, chat.Id, GetSelectedCallback);
+            Bot.SendText(message.Chat.Id, "Chose game to submit save to", forceReply);
+        }
+
+        private static void DoTurn(Message message, Chat chat) {
+            Bot.SetChatAction(message.Chat.Id, ChatAction.Typing);
+
+            UserData callerUser = null;
+
+            foreach (var game in Games) {
+                callerUser = game.Players.Find(_ => _.User != null && _.User.Id == message.From.Id).User;
+            }
+
+            if (callerUser == null) {
+                Bot.SendText(chat, "You are not registered in any games");
+                return;
+            }
+
+            void GetSelectedCallback(Message msg)
+            {
+                foreach (var game in Games) {
+                    var user = game.CurrentPlayer.User;
+                    if (user == null) {
+                        continue;
+                    }
+                    if (!user.Subs.Exists(_ => _.SubId == callerUser.Id)) {
+                        continue;
+                    }
+                    if ($"{user.Name}@{game.Name}" == msg.Text) {
+                        DownloadSave(user, callerUser, game);
+                    }
+                }
+            }
+
+            var test = new List<KeyboardButton>();
+            foreach (var game in Games) {
+                var user = game.CurrentPlayer.User;
+                if (user == null) {
+                    continue;
+                }
+                if (user.Subs.Exists(_ => _.SubId == callerUser.Id)) test.Add(new KeyboardButton($"{user.Name}@{game.Name}"));
+            }
+
+            if (test.Count == 0) {
+                Bot.SendText(message.Chat.Id, "You can not play anyones turn at the moment");
+                return;
+            }
+
+            test.Add(new KeyboardButton("cancel"));
+
+            var forceReply = new ReplyKeyboardMarkup(test.ToArray()) {
+                OneTimeKeyboard = true,
+                Selective = true
+            };
+
+            Bot.AddReplyGet(message.From.Id, chat.Id, GetSelectedCallback);
+            Bot.SendText(message.Chat.Id, "Chose game to sub", forceReply);
+        }
+
+        private static void DownloadSave(UserData user, UserData callerUser, GameData game) {
+            HttpInstance
+                .GetAsync($"http://multiplayerrobot.com/api/Diplomacy/GetLatestSaveFileBytes?authKey={user.AuthKey}&gameId={game.GameId}")
+                .ContinueWith(
+                    (requestTask) => {
+                        var response = requestTask.Result;
+                        if (!response.IsSuccessStatusCode) return;
+
+                        var stream = response.Content.ReadAsStreamAsync().Result;
+                        var file = new FileToSend($"(GMR) {user.Name} {game.Name}.Civ5Save", stream);
+                        Bot.SendFile(callerUser.Id, file);
+                        Bot.SendText(callerUser.Id, "Use /submitturn command to submit turn");
+                    });
+        }
+
+        private static void RemoveSub(Message message, Chat chat) {
+            Bot.SetChatAction(message.Chat.Id, ChatAction.Typing);
+            GameData selectedGame = null;
+            UserData selectedUser = null;
+
+            UserData callerUser = null;
+
+            foreach (var game in Games) {
+                callerUser = game.Players.Find(_ => _.User != null && _.User.Id == message.From.Id).User;
+            }
+
+            if (callerUser == null) {
+                Bot.SendText(chat, "You are not registered in any games");
+                return;
+            }
+
+            void GetSelectedCallback(Message msg) {
+                var sub = callerUser.Subs.Find(_ => $"{Bot.GetChat(_.SubId).Username}@{_.Game.Name}" == msg.Text);
+
+                if (sub == null) return;
+
+                callerUser.Subs.Remove(sub);
+                sub.RemoveSub();
+                Bot.SendText(chat, "Removed sub");
+            }
+
+            var test = callerUser.Subs.Select(_ => new KeyboardButton($"{Bot.GetChat(_.SubId).Username}@{_.Game.Name}")).ToList();
+
+            test.Add(new KeyboardButton("cancel"));
+
+            var forceReply = new ReplyKeyboardMarkup(test.ToArray()) {
+                OneTimeKeyboard = true,
+                Selective = true
+            };
+
+            Bot.AddReplyGet(message.From.Id, chat.Id, GetSelectedCallback);
+            Bot.SendText(message.Chat.Id, "Chose sub to remove", forceReply);
+        }
+
+        private static void AddSub(Message message, Chat chat) {
+            Bot.SetChatAction(message.Chat.Id, ChatAction.Typing);
+
+            UserData callerUser = null;
+
+            foreach (var game in Games) {
+                callerUser = game.Players.Find(_ => _.User != null && _.User.Id == message.From.Id).User;
+            }
+
+            if (callerUser == null) {
+                Bot.SendText(chat, "You are not registered in any games");
+                return;
+            }
+
+            GameData selectedGame = null;
+            UserData selectedUser = null;
+            var selectedTimes = 0;
+
+            void GetGameCallback(Message msg) {
+
+                selectedGame = Games.Find(_ => _.Name == msg.Text);
+                
+                var users = selectedGame.Players.Where(_ => _.User != null).Select(_ => new KeyboardButton(_.Name)).ToArray();
+
+                var userReply = new ReplyKeyboardMarkup(users) {
+                    OneTimeKeyboard = true,
+                    Selective = true
+                };
+                Bot.AddReplyGet(msg.From.Id, chat.Id, GetUserCallback);
+                Bot.SendText(msg.Chat.Id, "Chose the user", userReply);
+            }
+
+            void GetUserCallback(Message msg)
+            {
+
+                selectedUser = selectedGame.Players.Find(_ => _.User != null && _.User.Name == msg.Text).User;
+
+                Bot.AddReplyGet(msg.From.Id, chat.Id, GetTimesCallback);
+                Bot.SendText(msg.Chat.Id, "How many times can he play your turns in this game? (0 for unlimited)");
+            }
+
+            void GetTimesCallback(Message msg)
+            {
+                if (!int.TryParse(msg.Text, out selectedTimes) || selectedTimes < 0) {
+                    Bot.AddReplyGet(msg.From.Id, chat.Id, GetTimesCallback);
+                    Bot.SendText(msg.Chat.Id, "Please provide a positive integer");
+                    return;
+                }
+
+                SetSub(selectedGame, selectedUser, selectedTimes);
+            }
+
+
+            void SetSub(GameData game, UserData user, int times) {
+                var sub = new SubData {
+                    Id = callerUser.Id,
+                    SubId = user.Id,
+                    Times = times,
+                    Game = game
+                };
+                sub.InsertDatabase(false);
+                user.Subs.Add(sub);
+                Bot.SendText(message.Chat.Id, $"Added {user.Name} as sub in {game.Name}");
+            }
+
+
+            var test = (from game in Games let user = game.Players.Find(_ => _.User?.Id == message.From.Id).User where user != null select game.Name).Select(dummy => (KeyboardButton) dummy).ToList();
+
+
+            var forceReply = new ReplyKeyboardMarkup(test.ToArray()) {
+                OneTimeKeyboard = true,
+                Selective = true
+            };
+
+            Bot.AddReplyGet(message.From.Id, chat.Id, GetGameCallback);
+            Bot.SendText(message.Chat.Id, "Chose the game", forceReply);
         }
 
         private static void Turntimer(Chat chat) {
@@ -776,12 +1041,12 @@ namespace CiviBotti
 
                 returnString += $"{game.Name}:\n";
 
-                if (user.Subs.Count == 0) {
+                if (user.Subs == null || user.Subs.Count == 0) {
                     returnString += " none\n";
                     continue;
                 }
 
-                returnString = user.Subs.Aggregate(returnString, (current, sub) => current + $" -{Bot.GetChat(sub.Id).Username} for {(sub.Id == 0 ? "unlimited" : sub.Times.ToString())} times\n");
+                returnString = user.Subs.Aggregate(returnString, (current, sub) => current + $" -{Bot.GetChat(sub.SubId).Username} for {(sub.Times == 0 ? "unlimited" : sub.Times.ToString())} times\n");
             }
 
             if (returnString == string.Empty) {

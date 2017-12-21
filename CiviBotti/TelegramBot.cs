@@ -1,14 +1,18 @@
 ﻿using System;
+using System.Collections.Generic;
 using Telegram.Bot;
 using Telegram.Bot.Args;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace CiviBotti
 {
     public class TelegramBot
     {
+        private readonly List<ChatCallback> _replyCallbacks = new List<ChatCallback>();
+
         #region variables
         private readonly TelegramBotClient _bot;
 
@@ -42,10 +46,10 @@ namespace CiviBotti
             _bot.StopReceiving();
         }
 
-        public void SendText(long chat, string msg) {
+        public void SendText(long chat, string msg, ReplyMarkup replyMarkup = null) {
             try
             {
-                _bot.SendTextMessageAsync(chat, msg);
+                _bot.SendTextMessageAsync(chat, msg, replyMarkup: replyMarkup);
             }
             catch (ApiRequestException ex)
             {
@@ -53,8 +57,8 @@ namespace CiviBotti
             }
         }
 
-        public void SendText(Chat chat, string msg) {
-            SendText(chat.Id, msg);
+        public void SendText(Chat chat, string msg, ReplyMarkup replyMarkup = null) {
+            SendText(chat.Id, msg, replyMarkup);
         }
 
         public void SetChatAction(long chatId, ChatAction action)
@@ -75,7 +79,12 @@ namespace CiviBotti
         }
 
         public Chat GetChat(long userId) {
-            return _bot.GetChatAsync(userId).Result;
+            try {
+                return _bot.GetChatAsync(userId).Result;
+            }
+            catch {
+                return null;
+            }
         }
 
         public Message SendVoice(long chatId, FileToSend file)
@@ -104,6 +113,17 @@ namespace CiviBotti
 
         private void BotOnMessageReceived(object sender, MessageEventArgs messageEventArgs) {
             var message = messageEventArgs.Message;
+
+
+            int user = message.From.Id;
+
+            var chatCb = _replyCallbacks.Find(_ => _.User == user && _.Chat == message.Chat.Id);
+            if (chatCb != null) {
+                _replyCallbacks.Remove(chatCb);
+                chatCb.Callback?.Invoke(message);
+                return;
+            }
+
             if (message == null || message.Type != MessageType.TextMessage) return;
             
             Console.WriteLine(message.Text);
@@ -121,5 +141,16 @@ namespace CiviBotti
 
         #endregion
 
+
+        public void AddReplyGet(int user, long chat, Action<Message> callback) {
+
+            var chatCb = _replyCallbacks.Find(_ => _.User == user && _.Chat == chat);
+            if (chatCb != null) {
+                Console.WriteLine("ERROR: 2 callbacks for user, removing old!!");
+                _replyCallbacks.Remove(chatCb);
+            } else {
+                _replyCallbacks.Add(new ChatCallback(user, chat, callback));
+            }
+        }
     }
 }

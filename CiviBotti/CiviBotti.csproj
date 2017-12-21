@@ -82,6 +82,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ChatCallback.cs" />
     <Compile Include="Command.cs" />
     <Compile Include="SubData.cs" />
     <Compile Include="TelegramBot.cs" />

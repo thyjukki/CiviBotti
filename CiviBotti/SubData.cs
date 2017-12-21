@@ -10,8 +10,6 @@ namespace CiviBotti
         public GameData Game;
         public int Times;
 
-        public List<SubData> Subs;
-
         public bool InsertDatabase(bool open)
         {
             var result = false;
@@ -60,6 +58,12 @@ namespace CiviBotti
             }
             reader.Close();
             return collection;
+        }
+
+        public void RemoveSub() {
+            var sql = $"DELETE FROM subs WHERE gameid = {Game.GameId} AND id = {Id} AND subid = {SubId}";
+            Console.WriteLine(sql);
+            Program.Database.ExecuteNonQuery(sql);
         }
     }
 }

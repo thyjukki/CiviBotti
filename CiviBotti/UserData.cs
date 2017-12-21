@@ -2,22 +2,25 @@
 using System.Collections.Generic;
 
 namespace CiviBotti {
-    public class UserData {
+    public class UserData
+    {
+        private static readonly List<UserData> Users = new List<UserData>();
+
         public long Id;
         public string SteamId;
         public string AuthKey;
 
-        private string _name;
+        private string _name = string.Empty;
         public string Name {
             get {
-                if (Name == string.Empty) {
-                    _name = Program.Bot.GetChat(Id).Username;
+                if (_name == string.Empty) {
+                    _name = Program.Bot.GetChat(Id)?.Username;
                 }
                 return _name;
             }
         }
 
-        public List<SubData> Subs;
+        public List<SubData> Subs = new List<SubData>();
 
         public bool InsertDatabase(bool open) {
             var result = false;
@@ -42,6 +45,9 @@ namespace CiviBotti {
         }
 
         public static UserData Get(long id) {
+            var check = Users.Find(_ => _.Id == id);
+            if (check != null) return check;
+
             var sql = $"SELECT * FROM users WHERE id = {id}";
             Console.WriteLine(sql);
             var reader = Program.Database.ExecuteReader(sql);
@@ -49,8 +55,7 @@ namespace CiviBotti {
 
             UserData user = null;
             if (reader.Read()) {
-                user = new UserData
-                {
+                user = new UserData {
                     Id = reader.GetInt64(0),
                     SteamId = reader.GetString(1),
                     AuthKey = reader.GetString(2),
@@ -69,19 +74,23 @@ namespace CiviBotti {
 
             UserData user = null;
             if (reader.Read()) {
-                user = new UserData
-                {
-                    Id = reader.GetInt64(0),
-                    SteamId = reader.GetString(1),
-                    AuthKey = reader.GetString(2)
-                };
-
+                var check = Users.Find(_ => _.Id == reader.GetInt64(0));
+                if (check != null) {
+                    user = check;
+                } else {
+                    user = new UserData {
+                        Id = reader.GetInt64(0),
+                        SteamId = reader.GetString(1),
+                        AuthKey = reader.GetString(2),
+                        Subs = SubData.Get(reader.GetInt64(0))
+                    };
+                }
             }
 
             reader.Close();
             return user;
         }
 
-        public override string ToString() => $"User: {SteamId}";
+        public override string ToString() => $"User: {Name}";
     }
 }
