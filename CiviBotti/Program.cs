@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Security.Permissions;
 using System.Speech.Synthesis;
 using System.Text.RegularExpressions;
 using System.Timers;
@@ -31,7 +32,9 @@ namespace CiviBotti
         public static TelegramBot Bot;
 
         [STAThread]
+        [SecurityPermission(SecurityAction.Demand, Flags = SecurityPermissionFlag.ControlAppDomain)]
         public static void Main() {
+
             var configMap = new ExeConfigurationFileMap {ExeConfigFilename = "bot.config"};
             var config = ConfigurationManager.OpenMappedExeConfiguration(configMap, ConfigurationUserLevel.None);
             var configValue = config.AppSettings.Settings["DatabaseType"].Value;
@@ -40,17 +43,13 @@ namespace CiviBotti
 
             Bot = new TelegramBot(config.AppSettings.Settings["BotToken"].Value);
 
-            var aTimer = new Timer(30000);
-            aTimer.Elapsed += Tick;
-            aTimer.Enabled = true;
-            aTimer.Start();
 
             Games = GameData.GetAllGames();
             foreach (var game in Games)
             {
                 game.GetGameData();
             }
-            Console.WriteLine("Wait whaaat");
+
             var players = (from game in Games from player in game.Players select player.SteamId).ToList();
             var playerSteamNames = GetSteamUserNames(players);
 
@@ -74,6 +73,10 @@ namespace CiviBotti
             }
 
             Bot.StartReceiving();
+            var aTimer = new Timer(30000);
+            aTimer.Elapsed += Tick;
+            aTimer.Enabled = true;
+            aTimer.Start();
             Tick(null, null);
             while (true) {
                 var msg = Console.ReadLine();
@@ -271,14 +274,11 @@ namespace CiviBotti
                 return;
             }
             Bot.SetChatAction(message.Chat.Id, ChatAction.Typing);
-
-            UserData callerUser = null;
+            
             UserData selectedUser = null;
             GameData selectedGame = null;
 
-            foreach (var game in Games) {
-                callerUser = game.Players.Find(_ => _.User != null && _.User.Id == message.From.Id).User;
-            }
+            var callerUser = UserData.Get(message.From.Id);
 
             if (callerUser == null) {
                 Bot.SendText(chat, "You are not registered in any games");
@@ -353,11 +353,7 @@ namespace CiviBotti
                 return;
             }
 
-            UserData callerUser = null;
-
-            foreach (var game in Games) {
-                callerUser = game.Players.Find(_ => _.User != null && _.User.Id == message.From.Id)?.User;
-            }
+            var callerUser = UserData.Get(message.From.Id);
 
             if (callerUser == null) {
                 Bot.SendText(chat, "You are not registered in any games", new ReplyKeyboardRemove());
@@ -459,25 +455,28 @@ namespace CiviBotti
             }
             Bot.SetChatAction(message.Chat.Id, ChatAction.Typing);
 
-            UserData callerUser = null;
-
-            foreach (var game in Games) {
-                callerUser = game.Players.Find(_ => _.User != null && _.User.Id == message.From.Id).User;
-            }
+            var callerUser = UserData.Get(message.From.Id);
 
             if (callerUser == null) {
-                Bot.SendText(chat, "You are not registered in any games", new ReplyKeyboardRemove());
+                Bot.SendText(message.Chat.Id, "You need to be registered to use this '/register authkey'!");
                 return;
             }
 
             void GetSelectedCallback(Message msg) {
                 var sub = callerUser.Subs.Find(_ => $"{Bot.GetChat(_.SubId).Username}@{_.Game.Name}" == msg.Text);
-
-                if (sub == null) return;
+                if (sub == null) {
+                    return;
+                }
+                var game = sub.Game;
+                var user = UserData.Get(sub.SubId);
 
                 callerUser.Subs.Remove(sub);
                 sub.RemoveSub();
-                Bot.SendText(chat, "Removed sub", new ReplyKeyboardRemove());
+                if (user == null || game == null) {
+                    Console.WriteLine("GetSelectedCallback weird case");
+                }
+                Bot.SendText(chat, $"Removed {user.Name} subbing from {game.Name}", new ReplyKeyboardRemove());
+                Bot.SendText(user.Id, $"{callerUser.Name} revoked your sub rights from {game.Name}");
             }
 
             var test = callerUser.Subs.Select(_ => new KeyboardButton($"{Bot.GetChat(_.SubId).Username}@{_.Game.Name}")).ToList();
@@ -503,20 +502,15 @@ namespace CiviBotti
             }
             Bot.SetChatAction(message.Chat.Id, ChatAction.Typing);
 
-            UserData callerUser = null;
-
-            foreach (var game in Games) {
-                callerUser = game.Players.Find(_ => _.User != null && _.User.Id == message.From.Id)?.User;
-            }
+            var callerUser = UserData.Get(message.From.Id);
 
             if (callerUser == null) {
-                Bot.SendText(chat, "You are not registered in any games", new ReplyKeyboardRemove());
+                Bot.SendText(message.Chat.Id, "You need to be registered to use this '/register authkey'!");
                 return;
             }
 
             GameData selectedGame = null;
             UserData selectedUser = null;
-            var selectedTimes = 0;
 
             void GetGameCallback(Message msg) {
 
@@ -543,7 +537,7 @@ namespace CiviBotti
 
             void GetTimesCallback(Message msg)
             {
-                if (!int.TryParse(msg.Text, out selectedTimes) || selectedTimes < 0) {
+                if (!int.TryParse(msg.Text, out var selectedTimes) || selectedTimes < 0) {
                     Bot.AddReplyGet(msg.From.Id, chat.Id, GetTimesCallback);
                     Bot.SendText(msg.Chat.Id, "Please provide a positive integer", new ReplyKeyboardRemove());
                     return;
@@ -566,11 +560,10 @@ namespace CiviBotti
                 Bot.SendText(user.Id, $"{callerUser.Name} has given you rights to do his turn in {game.Name}");
             }
 
+            var games = Games.Where(_ => _.Players.Exists(player => player.User != null && player.User == callerUser)).Select(game => new KeyboardButton(game.Name)).ToList();
 
-            var test = (from game in Games let user = game.Players.Find(_ => _.User?.Id == message.From.Id)?.User where user != null select game.Name).Select(dummy => (KeyboardButton) dummy).ToList();
 
-
-            var forceReply = new ReplyKeyboardMarkup(test.ToArray()) {
+            var forceReply = new ReplyKeyboardMarkup(games.ToArray()) {
                 OneTimeKeyboard = true,
                 Selective = true
             };
@@ -779,11 +772,8 @@ namespace CiviBotti
             Bot.SetChatAction(chat.Id, ChatAction.Typing);
             GameData selectedGame = null;
             foreach (var game in Games) {
-                foreach (var chatid in game.Chats) {
-                    if (chatid == chat.Id) {
-                        selectedGame = game;
-                        break;
-                    }
+                if (game.Chats.Any(chatid => chatid == chat.Id)) {
+                    selectedGame = game;
                 }
 
                 if (selectedGame != null) {
@@ -812,11 +802,8 @@ namespace CiviBotti
             Bot.SetChatAction(chat.Id, ChatAction.RecordAudio);
             GameData selectedGame = null;
             foreach (var game in Games) {
-                foreach (var chatid in game.Chats) {
-                    if (chatid == chat.Id) {
-                        selectedGame = game;
-                        break;
-                    }
+                if (game.Chats.Any(chatid => chatid == chat.Id)) {
+                    selectedGame = game;
                 }
 
                 if (selectedGame != null) {
@@ -1098,20 +1085,24 @@ namespace CiviBotti
                 return;
             }
 
+            var callerUser = UserData.Get(message.From.Id);
+
+            if (callerUser == null) {
+                Bot.SendText(message.Chat.Id, "You need to be registered to use this '/register authkey'!");
+                return;
+            }
             var returnString = "";
             foreach (var game in Games) {
-
-                var user = game.Players.Find(_ => _.User?.Id == message.From.Id)?.User;
-                if (user == null) continue;
+                if (!game.Players.Exists(_ => _.User == callerUser)) continue;
 
                 returnString += $"{game.Name}:\n";
 
-                if (user.Subs == null || user.Subs.Count == 0) {
+                if (callerUser.Subs == null || callerUser.Subs.Count == 0 || !callerUser.Subs.Exists(_ => _.Game.GameId == game.GameId)) {
                     returnString += " none\n";
                     continue;
                 }
 
-                returnString = user.Subs.Aggregate(returnString, (current, sub) => current + $" -{Bot.GetChat(sub.SubId).Username} for {(sub.Times == 0 ? "unlimited" : sub.Times.ToString())} times\n");
+                returnString = callerUser.Subs.FindAll(_ => _.Game.GameId == game.GameId).Aggregate(returnString, (current, sub) => current + $" -{Bot.GetChat(sub.SubId).Username} for {(sub.Times == 0 ? "unlimited" : sub.Times.ToString())} times\n");
             }
 
             if (returnString == string.Empty) {
@@ -1212,11 +1203,7 @@ namespace CiviBotti
 
                     foreach (var chat in game.Chats) {
                         Console.WriteLine(chat);
-                        if (game.CurrentPlayer != null) {
-                            Bot.SendText(chat, $"It's now your turn {game.CurrentPlayer.Nametag}!");
-                        } else {
-                            Bot.SendText(chat, "It's now your turn waitwhatthishsouldntbehappening?!");
-                        }
+                        Bot.SendText(chat, game.CurrentPlayer != null ? $"It's now your turn {game.CurrentPlayer.Nametag}!" : "It's now your turn waitwhatthishsouldntbehappening?!");
                     }
                 }
                 else {

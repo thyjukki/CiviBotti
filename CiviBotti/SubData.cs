@@ -26,8 +26,7 @@ namespace CiviBotti
             return result;
         }
 
-        public static List<SubData> Get(long id)
-        {
+        public static List<SubData> Get(long id) {
             var sql = $"SELECT * FROM subs WHERE id = {id}";
             Console.WriteLine(sql);
             var reader = Program.Database.ExecuteReader(sql);
@@ -44,8 +43,7 @@ namespace CiviBotti
                     continue;
                 }
 
-                var sub = new SubData
-                {
+                var sub = new SubData {
                     Id = reader.GetInt64(1),
                     SubId = reader.GetInt64(2),
                     Times = reader.GetInt32(3),
