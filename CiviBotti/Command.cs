@@ -31,6 +31,16 @@ namespace CiviBotti
         [Description("help")]
         Help,
         [Description("turntimer")]
-        Turntimer
+        Turntimer,
+        [Description("listsubs")]
+        Listsubs,
+        [Description("addsub")]
+        Addsub,
+        [Description("removesub")]
+        Removesub,
+        [Description("doturn")]
+        Doturn,
+        [Description("submitturn")]
+        Submitturn
     }
 }

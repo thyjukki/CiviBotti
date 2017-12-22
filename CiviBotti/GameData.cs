@@ -14,11 +14,12 @@ namespace CiviBotti {
 
         public List<PlayerData> Players;
         public string Name;
+        public string TurnId;
 
         /// <exception cref="DatabaseUnknownType">Condition.</exception>
         /// <exception cref="DatabaseQueryFail">Condition.</exception>
         public bool InsertDatabase() {
-            var sql = $"INSERT INTO games (gameid, ownerid, name, currentp, notified) values ({GameId}, {Owner.Id}, '{Name}', {CurrentPlayer.SteamId}, '{(TurntimerNotified ? 1 : 0)}')";
+            var sql = $"INSERT INTO games (gameid, ownerid, name, currentp, notified, turnid) values ({GameId}, {Owner.Id}, '{Name}', {CurrentPlayer.SteamId}, '{(TurntimerNotified ? 1 : 0)}', '{TurnId}')";
             Console.WriteLine(sql);
             var rows = Program.Database.ExecuteNonQuery(sql);
 
@@ -29,7 +30,7 @@ namespace CiviBotti {
         /// <exception cref="DatabaseUnknownType">Condition.</exception>
         /// <exception cref="DatabaseQueryFail">Condition.</exception>
         public bool UpdateCurrent() {
-            var sql = $"UPDATE games SET currentp = {CurrentPlayer.SteamId}, notified = {(TurntimerNotified ? 1 : 0)} WHERE gameid = {GameId}";
+            var sql = $"UPDATE games SET currentp = {CurrentPlayer.SteamId}, notified = {(TurntimerNotified ? 1 : 0)}, turnid = '{TurnId}' WHERE gameid = {GameId}";
 
             Console.WriteLine(sql);
             var rows = Program.Database.ExecuteNonQuery(sql);
@@ -104,7 +105,8 @@ namespace CiviBotti {
                     _currentPlayerRaw = reader.GetString(3),
                     Players = new List<PlayerData>(),
                     Chats = new List<long>(),
-                    TurntimerNotified = reader.GetBit(4)
+                    TurntimerNotified = reader.GetBit(4),
+                    TurnId = reader.GetString(5)
                 };
 
 
@@ -113,43 +115,45 @@ namespace CiviBotti {
             }
             reader.Close();
 
-            foreach (var game in collection) {
-                game.Owner = UserData.Get(game._ownerRaw);
-
-
-                var sql2 = $"SELECT * FROM players WHERE gameid = {game.GameId}";
-                var reader2 = Program.Database.ExecuteReader(sql2);
-                while (reader2.Read()) {
-                    var player = new PlayerData
-                    {
-                        GameId = reader2.GetInt64(0),
-                        SteamId = reader2.GetString(1),
-                        TurnOrder = reader2.GetInt32(2)
-                    };
-                    DateTime.TryParse(reader2.GetString(3), out player.NextEta);
-
-                    if (game._currentPlayerRaw == player.SteamId) {
-                        game.CurrentPlayer = player;
-                    }
-                    game.Players.Add(player);
-                }
-                reader2.Close();
-
-                foreach (var player in game.Players) {
-                    player.User = UserData.GetBySteamId(player.SteamId);
-                }
-
-
-                var sql3 = $"SELECT chatid FROM gamechats WHERE gameid = {game.GameId}";
-                var reader3 = Program.Database.ExecuteReader(sql3);
-                while (reader3.Read()) {
-
-                    game.Chats.Add(reader3.GetInt64(0));
-                }
-                reader3.Close();
-            }
+            
 
             return collection;
+        }
+
+        public void GetGameData() {
+
+
+            var sql2 = $"SELECT * FROM players WHERE gameid = {GameId}";
+            var reader2 = Program.Database.ExecuteReader(sql2);
+            while (reader2.Read()) {
+                var player = new PlayerData {
+                    GameId = reader2.GetInt64(0),
+                    SteamId = reader2.GetString(1),
+                    TurnOrder = reader2.GetInt32(2)
+                };
+                DateTime.TryParse(reader2.GetString(3), out player.NextEta);
+
+                if (_currentPlayerRaw == player.SteamId) {
+                    CurrentPlayer = player;
+                }
+                Players.Add(player);
+            }
+            reader2.Close();
+
+            foreach (var player in Players) {
+                player.User = UserData.GetBySteamId(player.SteamId);
+                if (player.User?.Id == _ownerRaw) {
+                    Owner = player.User;
+                }
+            }
+
+
+            var sql3 = $"SELECT chatid FROM gamechats WHERE gameid = {GameId}";
+            var reader3 = Program.Database.ExecuteReader(sql3);
+            while (reader3.Read()) {
+                Chats.Add(reader3.GetInt64(0));
+            }
+            reader3.Close();
         }
 
         public void RemoveChat(long id) {
