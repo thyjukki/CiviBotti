@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Runtime.Remoting.Messaging;
 using Telegram.Bot;
 using Telegram.Bot.Args;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
+using File = Telegram.Bot.Types.File;
 
 namespace CiviBotti
 {
@@ -96,6 +99,27 @@ namespace CiviBotti
         {
             return _bot.SendDocumentAsync(chatId, file).Result;
         }
+
+        public void AddReplyGet(int user, long chat, Action<Message> callback)
+        {
+
+            var chatCb = _replyCallbacks.Find(_ => _.User == user && _.Chat == chat);
+            if (chatCb != null)
+            {
+                Console.WriteLine("ERROR: 2 callbacks for user, removing old!!");
+                _replyCallbacks.Remove(chatCb);
+            }
+            else
+            {
+                _replyCallbacks.Add(new ChatCallback(user, chat, callback));
+            }
+        }
+
+        public Stream GetFileAsStream(File file) {
+            var test = _bot.GetFileAsync(file.FileId).Result;
+            
+            return test.FileStream;
+        }
         #endregion
 
 
@@ -115,7 +139,7 @@ namespace CiviBotti
             var message = messageEventArgs.Message;
 
 
-            int user = message.From.Id;
+            var user = message.From.Id;
 
             var chatCb = _replyCallbacks.Find(_ => _.User == user && _.Chat == message.Chat.Id);
             if (chatCb != null) {
@@ -124,9 +148,11 @@ namespace CiviBotti
                 return;
             }
 
-            if (message == null || message.Type != MessageType.TextMessage) return;
-            
-            Console.WriteLine(message.Text);
+            if (message.Type != MessageType.TextMessage) return;
+            var groupstring = "";
+
+            if (message.Chat.Type != ChatType.Private) groupstring = $" ({message.Chat.Username})";
+            Console.WriteLine($"{DateTime.Now:MM\\/dd\\/yyyy HH:mm} [{GetChat(user).Username}]{groupstring} {message.Text}");
 
 
             if (!message.Text.StartsWith("/")) return;
@@ -140,17 +166,5 @@ namespace CiviBotti
         }
 
         #endregion
-
-
-        public void AddReplyGet(int user, long chat, Action<Message> callback) {
-
-            var chatCb = _replyCallbacks.Find(_ => _.User == user && _.Chat == chat);
-            if (chatCb != null) {
-                Console.WriteLine("ERROR: 2 callbacks for user, removing old!!");
-                _replyCallbacks.Remove(chatCb);
-            } else {
-                _replyCallbacks.Add(new ChatCallback(user, chat, callback));
-            }
-        }
     }
 }

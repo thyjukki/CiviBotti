@@ -7,7 +7,7 @@ namespace CiviBotti {
         private static readonly List<UserData> Users = new List<UserData>();
 
         public long Id;
-        public string SteamId;
+        public string SteamId = "";
         public string AuthKey;
 
         private string _name = string.Empty;
@@ -21,6 +21,11 @@ namespace CiviBotti {
         }
 
         public List<SubData> Subs = new List<SubData>();
+
+        public UserData()
+        {
+            Users.Add(this);
+        }
 
         public bool InsertDatabase(bool open) {
             var result = false;
@@ -58,12 +63,14 @@ namespace CiviBotti {
                 user = new UserData {
                     Id = reader.GetInt64(0),
                     SteamId = reader.GetString(1),
-                    AuthKey = reader.GetString(2),
-                    Subs = SubData.Get(reader.GetInt64(0))
+                    AuthKey = reader.GetString(2)
                 };
             }
 
             reader.Close();
+            if (user != null) {
+                user.Subs = SubData.Get(user.Id);
+            }
             return user;
         }
         
@@ -81,16 +88,31 @@ namespace CiviBotti {
                     user = new UserData {
                         Id = reader.GetInt64(0),
                         SteamId = reader.GetString(1),
-                        AuthKey = reader.GetString(2),
-                        Subs = SubData.Get(reader.GetInt64(0))
+                        AuthKey = reader.GetString(2)
                     };
                 }
             }
-
+            
             reader.Close();
+            if (user != null)
+            {
+                user.Subs = SubData.Get(user.Id);
+            }
             return user;
         }
 
+        public static bool operator ==(UserData c1, UserData c2) {
+            return c1?.SteamId == c2?.SteamId;
+        }
+
+        public static bool operator !=(UserData c1, UserData c2) {
+            return !(c1 == c2);
+        }
+        
         public override string ToString() => $"User: {Name}";
+
+        public static UserData NewUser(int fromId, string steamId, string authKey) {
+            return new UserData { Id = fromId, SteamId = steamId, AuthKey = authKey };
+        }
     }
 }

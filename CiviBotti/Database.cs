@@ -42,7 +42,7 @@ namespace CiviBotti {
                         _sqliteConnection.Open();
                         var command = new SQLiteCommand("CREATE TABLE users (id bigint NOT NULL, steamid VARCHAR(20), authkey VARCHAR(20), PRIMARY KEY(id))", _sqliteConnection);
                         command.ExecuteNonQuery();
-                        command = new SQLiteCommand("CREATE TABLE games (gameid bigint NOT NULL, ownerid NOT NULL, name VARCHAR(40), currentp VARCHAR(20), notified BIT NOT NULL DEFAULT '1', PRIMARY KEY(gameid), FOREIGN KEY(ownerid) REFERENCES users(id))", _sqliteConnection);
+                        command = new SQLiteCommand("CREATE TABLE games (gameid bigint NOT NULL, ownerid bigint NOT NULL, name VARCHAR(40), currentp VARCHAR(20), notified BIT NOT NULL DEFAULT '1', turnid VARCHAR(20), PRIMARY KEY(gameid), FOREIGN KEY(ownerid) REFERENCES users(id))", _sqliteConnection);
                         command.ExecuteNonQuery();
                         command = new SQLiteCommand("CREATE TABLE players (gameid bigint NOT NULL, steamid VARCHAR(20), turnorder INT, nexteta VARCHAR(20), PRIMARY KEY(gameid, steamid))", _sqliteConnection);
                         command.ExecuteNonQuery();
