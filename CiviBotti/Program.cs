@@ -506,7 +506,7 @@ namespace CiviBotti
             UserData callerUser = null;
 
             foreach (var game in Games) {
-                callerUser = game.Players.Find(_ => _.User != null && _.User.Id == message.From.Id).User;
+                callerUser = game.Players.Find(_ => _.User != null && _.User.Id == message.From.Id)?.User;
             }
 
             if (callerUser == null) {
@@ -567,7 +567,7 @@ namespace CiviBotti
             }
 
 
-            var test = (from game in Games let user = game.Players.Find(_ => _.User?.Id == message.From.Id).User where user != null select game.Name).Select(dummy => (KeyboardButton) dummy).ToList();
+            var test = (from game in Games let user = game.Players.Find(_ => _.User?.Id == message.From.Id)?.User where user != null select game.Name).Select(dummy => (KeyboardButton) dummy).ToList();
 
 
             var forceReply = new ReplyKeyboardMarkup(test.ToArray()) {
@@ -1101,7 +1101,7 @@ namespace CiviBotti
             var returnString = "";
             foreach (var game in Games) {
 
-                var user = game.Players.Find(_ => _.User?.Id == message.From.Id).User;
+                var user = game.Players.Find(_ => _.User?.Id == message.From.Id)?.User;
                 if (user == null) continue;
 
                 returnString += $"{game.Name}:\n";
