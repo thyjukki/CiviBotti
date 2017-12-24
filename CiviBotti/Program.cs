@@ -314,7 +314,6 @@ namespace CiviBotti
 
 
                 Bot.SendText(message.Chat.Id, "Submiting turn");
-                Bot.SendText(selectedUser.Id, $"{callerUser.Name} submitted your turn");
                 Bot.SetChatAction(message.Chat.Id, ChatAction.UploadDocument);
                 UploadSave(selectedUser, callerUser, selectedGame, msg.Document);
             }
@@ -422,12 +421,24 @@ namespace CiviBotti
         }
 
         private static void UploadSave(UserData user, UserData callerUser, GameData game, File doc) {
+            var uri = new Uri("http://multiplayerrobot.com/");
+            var httpClient = new HttpClient();
+            httpClient.BaseAddress = uri;
+            httpClient.DefaultRequestHeaders.ExpectContinue = false;
             var stream = Bot.GetFileAsStream(doc);
-            HttpContent fileStreamContent = new StreamContent(stream);
-            HttpInstance
+            var form =
+                new MultipartFormDataContent(
+                    $"Upload----{(object) DateTime.UtcNow.ToString(CultureInfo.InvariantCulture)}") {
+                    {new StringContent(game.TurnId), "turnId"},
+                    {new StringContent("False"), "isCompressed"},
+                    {new StringContent(user.AuthKey), "authKey"},
+                    {new StreamContent(stream), "saveFileUpload", $"{game.TurnId}.Civ5Save"}
+                };
+
+            httpClient
                 .PostAsync(
-                    $"http://multiplayerrobot.com/api/Diplomacy/SubmitTurn?authKey={user.AuthKey}&turnId={game.TurnId}",
-                    fileStreamContent).ContinueWith(
+                    "Game/UploadSaveClient",
+                    form).ContinueWith(
                     (requestTask) => {
                         var response = requestTask.Result;
                         if (!response.IsSuccessStatusCode)
