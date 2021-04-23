@@ -26,6 +26,8 @@ namespace CiviBotti
         Teekari,
         [Description("tee")]
         Tee,
+        [Description("ree")]
+        Tee,
         [Description("eta")]
         Eta,
         [Description("help")]
