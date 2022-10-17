@@ -105,7 +105,7 @@ namespace CiviBotti {
                     _currentPlayerRaw = reader.GetString(3),
                     Players = new List<PlayerData>(),
                     Chats = new List<long>(),
-                    TurntimerNotified = reader.GetBit(4),
+                    TurntimerNotified = reader.GetBoolean(4),
                     TurnId = reader.GetString(5)
                 };
 

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Configuration;
 using System.Data;
+using System.Data.Common;
 using System.Data.SqlClient;
 using MySql.Data.MySqlClient;
 using System.Data.SQLite;
@@ -111,17 +112,17 @@ namespace CiviBotti {
         }
 
         /// <exception cref="DatabaseQueryFail">Condition.</exception>
-        public DatabaseReader ExecuteReader(string sql) {
+        public DbDataReader ExecuteReader(string sql) {
             Open();
 
             try {
                 switch (_type) {
                     case DatabaseType.SqLite:
                         var sqliteCommand = new SQLiteCommand(sql, _sqliteConnection);
-                        return new DatabaseReader(sqliteCommand.ExecuteReader());
+                        return sqliteCommand.ExecuteReader();
                     case DatabaseType.MySql:
                         var mySqlCommand = new MySqlCommand(sql, _mySqlConnection);
-                        return new DatabaseReader(mySqlCommand.ExecuteReader());
+                        return mySqlCommand.ExecuteReader();
                     default:
                         throw new DatabaseUnknownType("ExecuteReader " + sql);
                 }
