@@ -89,13 +89,6 @@ namespace CiviBotti
                 if (msg == "quit" || msg == "exit") {
                     break;
                 }
-
-
-                foreach (var game in Games) {
-                    foreach (var chat in game.Chats) {
-                        Bot.SendText(chat, msg);
-                    }
-                }
             }
 
             Bot.StopReceiving();
