@@ -37,7 +37,7 @@ namespace CiviBotti
         [SecurityPermission(SecurityAction.Demand, Flags = SecurityPermissionFlag.ControlAppDomain)]
         public static void Main() {
             var builder = new ConfigurationBuilder()
-                .AddXmlFile("bot.config")
+                .AddXmlFile("bot.config", optional: true)
                 .AddEnvironmentVariables();
             var configs = builder.Build();
             
