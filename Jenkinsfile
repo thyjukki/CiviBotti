@@ -16,7 +16,7 @@ pipeline {
                 withSonarQubeEnv('SonarQube Jukki') {
                     sh '''dotnet /sonar-scanner/SonarScanner.MSBuild.dll begin \
                  /k:"civibotti" \
-                 /n:"civibotti'''
+                 /n:"civibotti"'''
                     sh 'dotnet build "CiviBotti/CiviBotti.csproj" -c Release'
                     sh 'dotnet /sonar-scanner/SonarScanner.MSBuild.dll end'
                 }
