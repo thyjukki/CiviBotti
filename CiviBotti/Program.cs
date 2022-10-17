@@ -16,7 +16,6 @@ using Newtonsoft.Json.Linq;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
-using ConfigurationManager = System.Configuration.ConfigurationManager;
 using File = Telegram.Bot.Types.File;
 using HtmlDocument = HtmlAgilityPack.HtmlDocument;
 using Message = Telegram.Bot.Types.Message;
@@ -34,7 +33,7 @@ namespace CiviBotti
 
         public static TelegramBot Bot;
 
-        private static IConfigurationRoot Configs { get; set; }
+        private static IConfigurationRoot Configs { get; set; } = null!;
 
         [STAThread]
         [SecurityPermission(SecurityAction.Demand, Flags = SecurityPermissionFlag.ControlAppDomain)]
@@ -43,6 +42,8 @@ namespace CiviBotti
                 .AddXmlFile("bot.config", optional: true)
                 .AddEnvironmentVariables();
             Configs = builder.Build();
+            
+            if (Configs == null) return;
 
             var dbType = (Database.DatabaseType)Enum.Parse(typeof(Database.DatabaseType), Configs["DB_TYPE"]);
             Database = new Database(dbType, Configs);
