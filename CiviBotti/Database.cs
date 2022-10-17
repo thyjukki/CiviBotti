@@ -2,6 +2,7 @@
 using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
+using MySql.Data.MySqlClient;
 using System.Data.SQLite;
 using Microsoft.Extensions.Configuration;
 using ConfigurationManager = System.Configuration.ConfigurationManager;
@@ -10,7 +11,7 @@ namespace CiviBotti {
     public class Database {
         readonly DatabaseType _type;
 
-        private readonly SqlConnection _sqlConnection;
+        private readonly MySqlConnection _mySqlConnection;
         private readonly SQLiteConnection _sqliteConnection;
 
         /// <exception cref="DatabaseUnknownType" accessor="get">Unknown database connection</exception>
@@ -19,8 +20,8 @@ namespace CiviBotti {
                 switch (_type) {
                     case DatabaseType.SqLite:
                         return _sqliteConnection.State;
-                    case DatabaseType.Sql:
-                        return _sqlConnection.State;
+                    case DatabaseType.MySql:
+                        return _mySqlConnection.State;
                     default:
                         throw new DatabaseUnknownType("ConnectionState");
                 }
@@ -29,7 +30,7 @@ namespace CiviBotti {
 
         public enum DatabaseType {
             SqLite,
-            Sql
+            MySql
         }
 
         /// <exception cref="DatabaseUnknownType">Unknown database connection</exception>
@@ -59,7 +60,7 @@ namespace CiviBotti {
                         _sqliteConnection = new SQLiteConnection("Data Source=database.sqlite;Version=3;");
                     }
                     break;
-                case DatabaseType.Sql:
+                case DatabaseType.MySql:
                     var builder = new SqlConnectionStringBuilder();
 
                     try
@@ -68,7 +69,7 @@ namespace CiviBotti {
                         builder.UserID = configs["DB_USER"];
                         builder.Password = configs["DB_PW"];
                         builder.InitialCatalog = configs["DB_DB"];
-                        _sqlConnection = new SqlConnection(builder.ConnectionString);
+                        _mySqlConnection = new MySqlConnection(builder.ConnectionString);
                     }
                     catch (ConfigurationErrorsException ex)
                     {
@@ -94,8 +95,8 @@ namespace CiviBotti {
                     case DatabaseType.SqLite:
                         var sqliteCommand = new SQLiteCommand(sql, _sqliteConnection);
                         return sqliteCommand.ExecuteNonQuery();
-                    case DatabaseType.Sql:
-                        var sqlCommand = new SqlCommand(sql, _sqlConnection);
+                    case DatabaseType.MySql:
+                        var sqlCommand = new MySqlCommand(sql, _mySqlConnection);
                         return sqlCommand.ExecuteNonQuery();
                     default:
                         throw new DatabaseUnknownType("ExecuteNonQuery " + sql);
@@ -118,9 +119,9 @@ namespace CiviBotti {
                     case DatabaseType.SqLite:
                         var sqliteCommand = new SQLiteCommand(sql, _sqliteConnection);
                         return new DatabaseReader(sqliteCommand.ExecuteReader());
-                    case DatabaseType.Sql:
-                        var sqlCommand = new SqlCommand(sql, _sqlConnection);
-                        return new DatabaseReader(sqlCommand.ExecuteReader());
+                    case DatabaseType.MySql:
+                        var mySqlCommand = new MySqlCommand(sql, _mySqlConnection);
+                        return new DatabaseReader(mySqlCommand.ExecuteReader());
                     default:
                         throw new DatabaseUnknownType("ExecuteReader " + sql);
                 }
@@ -143,8 +144,8 @@ namespace CiviBotti {
                     case DatabaseType.SqLite:
                         _sqliteConnection.Open();
                         break;
-                    case DatabaseType.Sql:
-                        _sqlConnection.Open();
+                    case DatabaseType.MySql:
+                        _mySqlConnection.Open();
                         break;
                     default:
                         throw new DatabaseUnknownType("Open");

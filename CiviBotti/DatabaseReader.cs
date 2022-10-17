@@ -1,10 +1,11 @@
 ﻿using System.Data.SqlClient;
 using System.Data.SQLite;
+using MySql.Data.MySqlClient;
 
 namespace CiviBotti {
     public class DatabaseReader {
         public SQLiteDataReader SqliteReader;
-        public SqlDataReader SqlDataReader;
+        public MySqlDataReader MySqlDataReader;
         private readonly Database.DatabaseType _type;
 
         /// <exception cref="DatabaseUnknownType" accessor="get">HasRows</exception>
@@ -13,8 +14,8 @@ namespace CiviBotti {
                 switch (_type) {
                     case Database.DatabaseType.SqLite:
                         return SqliteReader.HasRows;
-                    case Database.DatabaseType.Sql:
-                        return SqlDataReader.HasRows;
+                    case Database.DatabaseType.MySql:
+                        return MySqlDataReader.HasRows;
                     default:
                         throw new DatabaseUnknownType("HasRows");
                 }
@@ -26,9 +27,9 @@ namespace CiviBotti {
             _type = Database.DatabaseType.SqLite;
         }
 
-        public DatabaseReader(SqlDataReader reader) {
-            SqlDataReader = reader;
-            _type = Database.DatabaseType.Sql;
+        public DatabaseReader(MySqlDataReader reader) {
+            MySqlDataReader = reader;
+            _type = Database.DatabaseType.MySql;
         }
 
         /// <exception cref="DatabaseUnknownType">HasRows</exception>
@@ -36,8 +37,8 @@ namespace CiviBotti {
             switch (_type) {
                 case Database.DatabaseType.SqLite:
                     return SqliteReader.Read();
-                case Database.DatabaseType.Sql:
-                    return SqlDataReader.Read();
+                case Database.DatabaseType.MySql:
+                    return MySqlDataReader.Read();
                 default:
                     throw new DatabaseUnknownType("HasRows");
             }
@@ -48,8 +49,8 @@ namespace CiviBotti {
             switch (_type) {
                 case Database.DatabaseType.SqLite:
                     return SqliteReader.GetInt64(v);
-                case Database.DatabaseType.Sql:
-                    return SqlDataReader.GetInt64(v);
+                case Database.DatabaseType.MySql:
+                    return MySqlDataReader.GetInt64(v);
                 default:
                     throw new DatabaseUnknownType("GetInt64");
             }
@@ -60,8 +61,8 @@ namespace CiviBotti {
             switch (_type) {
                 case Database.DatabaseType.SqLite:
                     return SqliteReader.GetString(v);
-                case Database.DatabaseType.Sql:
-                    return SqlDataReader.GetString(v);
+                case Database.DatabaseType.MySql:
+                    return MySqlDataReader.GetString(v);
                 default:
                     throw new DatabaseUnknownType("GetString");
             }
@@ -72,8 +73,8 @@ namespace CiviBotti {
             switch (_type) {
                 case Database.DatabaseType.SqLite:
                     return SqliteReader.GetInt32(v);
-                case Database.DatabaseType.Sql:
-                    return SqlDataReader.GetInt32(v);
+                case Database.DatabaseType.MySql:
+                    return MySqlDataReader.GetInt32(v);
                 default:
                     throw new DatabaseUnknownType("GetInt32");
             }
@@ -84,8 +85,8 @@ namespace CiviBotti {
             switch (_type) {
                 case Database.DatabaseType.SqLite:
                     return SqliteReader.GetBoolean(v);
-                case Database.DatabaseType.Sql:
-                    return SqlDataReader.GetBoolean(v);
+                case Database.DatabaseType.MySql:
+                    return MySqlDataReader.GetBoolean(v);
                 default:
                     throw new DatabaseUnknownType("GetInt32");
             }
@@ -97,8 +98,8 @@ namespace CiviBotti {
                 case Database.DatabaseType.SqLite:
                     SqliteReader.Close();
                     break;
-                case Database.DatabaseType.Sql:
-                    SqlDataReader.Close();
+                case Database.DatabaseType.MySql:
+                    MySqlDataReader.Close();
                     break;
                 default:
                     throw new DatabaseUnknownType("Close");
@@ -111,8 +112,8 @@ namespace CiviBotti {
             switch (_type) {
                 case Database.DatabaseType.SqLite:
                     return SqliteReader.ToString();
-                case Database.DatabaseType.Sql:
-                    return SqlDataReader.GetDataTypeName(0);
+                case Database.DatabaseType.MySql:
+                    return MySqlDataReader.GetDataTypeName(0);
                 default:
                     throw new DatabaseUnknownType("ToString");
             }
