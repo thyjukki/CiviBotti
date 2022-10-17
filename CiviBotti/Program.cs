@@ -1,14 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Configuration;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Security.Permissions;
-using System.Speech.Synthesis;
+using Microsoft.CognitiveServices.Speech;
+using Microsoft.CognitiveServices.Speech.Audio;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Timers;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json.Linq;
@@ -33,18 +34,20 @@ namespace CiviBotti
 
         public static TelegramBot Bot;
 
+        private static IConfigurationRoot Configs { get; set; }
+
         [STAThread]
         [SecurityPermission(SecurityAction.Demand, Flags = SecurityPermissionFlag.ControlAppDomain)]
         public static void Main() {
             var builder = new ConfigurationBuilder()
                 .AddXmlFile("bot.config", optional: true)
                 .AddEnvironmentVariables();
-            var configs = builder.Build();
-            
-            var dbType = (Database.DatabaseType) Enum.Parse(typeof(Database.DatabaseType), configs["DB_TYPE"]);
-            Database = new Database(dbType, configs);
+            Configs = builder.Build();
 
-            Bot = new TelegramBot(configs["BOT_TOKEN"]);
+            var dbType = (Database.DatabaseType)Enum.Parse(typeof(Database.DatabaseType), Configs["DB_TYPE"]);
+            Database = new Database(dbType, Configs);
+
+            Bot = new TelegramBot(Configs["BOT_TOKEN"]);
 
 
             Games = GameData.GetAllGames();
@@ -93,6 +96,7 @@ namespace CiviBotti
 
             Bot.StopReceiving();
         }
+
 
         private static void Tick(object sender, ElapsedEventArgs e) {
             foreach (var game in Games) {
@@ -158,14 +162,14 @@ namespace CiviBotti
 
             newGame.Players = new List<PlayerData>();
             newGame.Chats = new List<long>();
-            newGame.Name = (string) data["Name"];
+            newGame.Name = (string)data["Name"];
             var current = data["CurrentTurn"];
 
             if (current == null) {
                 return;
             }
 
-            var currentPlayerId = (string) current["UserId"];
+            var currentPlayerId = (string)current["UserId"];
             foreach (var player in data["Players"]) {
                 var playerData = new PlayerData {
                     GameId = gameId,
@@ -439,11 +443,11 @@ namespace CiviBotti
             var stream = Bot.GetFileAsStream(doc);
             var form =
                 new MultipartFormDataContent(
-                    $"Upload----{(object) DateTime.UtcNow.ToString(CultureInfo.InvariantCulture)}") {
-                    {new StringContent(game.TurnId), "turnId"},
-                    {new StringContent("False"), "isCompressed"},
-                    {new StringContent(user.AuthKey), "authKey"},
-                    {new StreamContent(stream), "saveFileUpload", $"{game.TurnId}.Civ5Save"}
+                    $"Upload----{(object)DateTime.UtcNow.ToString(CultureInfo.InvariantCulture)}") {
+                    { new StringContent(game.TurnId), "turnId" },
+                    { new StringContent("False"), "isCompressed" },
+                    { new StringContent(user.AuthKey), "authKey" },
+                    { new StreamContent(stream), "saveFileUpload", $"{game.TurnId}.Civ5Save" }
                 };
 
             httpClient
@@ -828,7 +832,7 @@ namespace CiviBotti
             Bot.SendText(message.Chat.Id, $"Next player is: {player.Nametag}");
         }
 
-        private static void Tee(Message message, Chat chat) {
+        private static async Task Tee(Message message, Chat chat) {
             Bot.SetChatAction(chat.Id, ChatAction.RecordAudio);
             GameData selectedGame = null;
             foreach (var game in Games) {
@@ -848,16 +852,8 @@ namespace CiviBotti
 
 
             var player = selectedGame.CurrentPlayer;
-            string name = player.Name;
+            var name = player.Name;
 
-
-            var synth = new SpeechSynthesizer();
-            var stream = new MemoryStream();
-
-
-            synth.SelectVoiceByHints(VoiceGender.Female, VoiceAge.Adult, 0, new CultureInfo("fi-FI"));
-
-            synth.SetOutputToWaveStream(stream);
 
             var rnd = new Random();
 
@@ -906,13 +902,19 @@ namespace CiviBotti
                 }
             }
 
-            synth.Speak(output);
-            stream.Flush();
+            var speechConfig = SpeechConfig.FromSubscription(Configs["SPEECH_KEY"], Configs["SPEECH_REGION"]);
 
-            stream.Seek(0, SeekOrigin.Begin);
+            // The language of the voice that speaks.
+            speechConfig.SpeechSynthesisVoiceName = "fi-FI-NooraNeural";
 
-            var file = new FileToSend("output.ogg", stream);
+            var path = Path.GetTempFileName();
+            using var speechSynthesizer = new SpeechSynthesizer(speechConfig, AudioConfig.FromWavFileOutput(path));
+            var synthesisResult = await speechSynthesizer.SpeakTextAsync(output);
+
+            if (synthesisResult.Reason == ResultReason.Canceled) return;
+            var file = new FileToSend("output.ogg", System.IO.File.Open(path, FileMode.Open));
             Bot.SendVoice(message.Chat.Id, file);
+            System.IO.File.Delete(path);
         }
 
         private static void Eta(Message message, Chat chat) {
@@ -1258,7 +1260,7 @@ namespace CiviBotti
                     oldPlayerId = game.CurrentPlayer.SteamId;
                 }
 
-                var currentPlayerId = (string) current["UserId"];
+                var currentPlayerId = (string)current["UserId"];
                 game.TurnStarted = DateTime.Parse(current["Started"].ToString());
 
                 if (oldPlayerId != currentPlayerId) {
@@ -1417,7 +1419,7 @@ namespace CiviBotti
 
             var json = JObject.Parse(html);
 
-            return json["Games"].FirstOrDefault(item => (int) item["GameId"] == game.GameId);
+            return json["Games"].FirstOrDefault(item => (int)item["GameId"] == game.GameId);
         }
 
         private static string GetPlayerIdFromAuthkey(string authkey) {
