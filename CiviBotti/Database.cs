@@ -3,6 +3,8 @@ using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
 using System.Data.SQLite;
+using Microsoft.Extensions.Configuration;
+using ConfigurationManager = System.Configuration.ConfigurationManager;
 
 namespace CiviBotti {
     public class Database {
@@ -31,7 +33,7 @@ namespace CiviBotti {
         }
 
         /// <exception cref="DatabaseUnknownType">Unknown database connection</exception>
-        public Database(DatabaseType t) {
+        public Database(DatabaseType t, IConfigurationRoot configs) {
             _type = t;
 
             switch (_type) {
@@ -60,15 +62,12 @@ namespace CiviBotti {
                 case DatabaseType.Sql:
                     var builder = new SqlConnectionStringBuilder();
 
-                    var configMap = new ExeConfigurationFileMap();
-                    configMap.ExeConfigFilename = "bot.config";
                     try
                     {
-                        var config = ConfigurationManager.OpenMappedExeConfiguration(configMap, ConfigurationUserLevel.None);
-                        builder.DataSource = config.AppSettings.Settings["SqlHost"].Value;
-                        builder.UserID = config.AppSettings.Settings["SqlUSer"].Value;
-                        builder.Password = config.AppSettings.Settings["SqlPassword"].Value;
-                        builder.InitialCatalog = config.AppSettings.Settings["SqlDatabase"].Value;
+                        builder.DataSource = configs["DB_HOST"];
+                        builder.UserID = configs["DB_USER"];
+                        builder.Password = configs["DB_PW"];
+                        builder.InitialCatalog = configs["DB_DB"];
                         _sqlConnection = new SqlConnection(builder.ConnectionString);
                     }
                     catch (ConfigurationErrorsException ex)

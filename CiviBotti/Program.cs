@@ -10,10 +10,12 @@ using System.Security.Permissions;
 using System.Speech.Synthesis;
 using System.Text.RegularExpressions;
 using System.Timers;
+using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json.Linq;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
+using ConfigurationManager = System.Configuration.ConfigurationManager;
 using File = Telegram.Bot.Types.File;
 using HtmlDocument = HtmlAgilityPack.HtmlDocument;
 using Message = Telegram.Bot.Types.Message;
@@ -34,13 +36,15 @@ namespace CiviBotti
         [STAThread]
         [SecurityPermission(SecurityAction.Demand, Flags = SecurityPermissionFlag.ControlAppDomain)]
         public static void Main() {
-            var configMap = new ExeConfigurationFileMap {ExeConfigFilename = "bot.config"};
-            var config = ConfigurationManager.OpenMappedExeConfiguration(configMap, ConfigurationUserLevel.None);
-            var configValue = config.AppSettings.Settings["DatabaseType"].Value;
-            var dbType = (Database.DatabaseType) Enum.Parse(typeof(Database.DatabaseType), configValue);
-            Database = new Database(dbType);
+            var builder = new ConfigurationBuilder()
+                .AddXmlFile("bot.config")
+                .AddEnvironmentVariables();
+            var configs = builder.Build();
+            
+            var dbType = (Database.DatabaseType) Enum.Parse(typeof(Database.DatabaseType), configs["DB_TYPE"]);
+            Database = new Database(dbType, configs);
 
-            Bot = new TelegramBot(config.AppSettings.Settings["BotToken"].Value);
+            Bot = new TelegramBot(configs["BOT_TOKEN"]);
 
 
             Games = GameData.GetAllGames();

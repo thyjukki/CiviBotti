@@ -1,11 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <configuration>
-  <appSettings>
-    <add key="BotToken" value="telegram-bot-token" />
-    <add key="DatabaseType" value="SQL or SQLite" />
-    <add key="SqlHost" value="host" />
-    <add key="SqlUser" value="user" />
-    <add key="SqlPassword" value="password?x" />
-    <add key="SqlDatabase" value="database" />
-  </appSettings>
+    <BOT_TOKEN>telegram-bot-token</BOT_TOKEN>
+    <DB_TYPE>SQL or SqLite</DB_TYPE>>
+    <DB_HOST>host</DB_HOST>>
+    <DB_USER>user</DB_USER>
+    <DB_PW>password</DB_PW>>
+    <DB_DB>database</DB_DB>>>
 </configuration>
