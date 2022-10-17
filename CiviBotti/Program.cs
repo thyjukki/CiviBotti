@@ -907,7 +907,7 @@ namespace CiviBotti
             // The language of the voice that speaks.
             speechConfig.SpeechSynthesisVoiceName = "fi-FI-NooraNeural";
 
-            var path = Path.GetTempFileName();
+            var path = Path.GetRandomFileName();
             using var speechSynthesizer = new SpeechSynthesizer(speechConfig, AudioConfig.FromWavFileOutput(path));
             var synthesisResult = await speechSynthesizer.SpeakTextAsync(output);
 
