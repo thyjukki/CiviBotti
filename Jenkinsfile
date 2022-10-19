@@ -37,6 +37,9 @@ pipeline {
             }
         }
         stage("Docker push") {
+            when {
+                branch 'main'
+            }
             steps {
                 script {
                     docker.withRegistry('https://nexus.jukk.it', 'nexus-jenkins-user' ) {
@@ -47,6 +50,9 @@ pipeline {
             }
         }
         stage('Deploy App') {
+            when {
+                branch 'main'
+            }
             agent {
                 docker {
                     image 'caprover/cli-caprover'
