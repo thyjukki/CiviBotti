@@ -10,6 +10,9 @@ RUN dotnet publish -c Release -o out
 
 # Build runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:6.0
+
+ENV TZ="Europe/Helsinki"
+
 WORKDIR /App
 COPY --from=build-env /App/out .
 ENTRYPOINT ["dotnet", "CiviBotti.dll"]
