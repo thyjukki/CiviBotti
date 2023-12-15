@@ -38,7 +38,7 @@ pipeline {
         }
         stage("Docker push") {
             when {
-                branch 'main'
+                branch 'master'
             }
             steps {
                 script {
@@ -51,7 +51,7 @@ pipeline {
         }
         stage('Deploy App') {
             when {
-                branch 'main'
+                branch 'master'
             }
             agent {
                 docker {
