@@ -10,6 +10,8 @@ namespace CiviBotti {
         public PlayerData CurrentPlayer;
         public DateTime TurnStarted;
         public bool TurntimerNotified;
+        public bool DailyNotified;
+        public bool EnableDailyNotified;
         private string _currentPlayerRaw;
 
         public List<PlayerData> Players;
@@ -19,7 +21,7 @@ namespace CiviBotti {
         /// <exception cref="DatabaseUnknownType">Condition.</exception>
         /// <exception cref="DatabaseQueryFail">Condition.</exception>
         public bool InsertDatabase() {
-            var sql = $"INSERT INTO games (gameid, ownerid, name, currentp, notified, turnid) values ({GameId}, {Owner.Id}, '{Name}', {CurrentPlayer.SteamId}, '{(TurntimerNotified ? 1 : 0)}', '{TurnId}')";
+            var sql = $"INSERT INTO games (gameid, ownerid, name, currentp, notified, turnid, enableDailyNotified, dailyNotified) values ({GameId}, {Owner.Id}, '{Name}', {CurrentPlayer.SteamId}, '{(TurntimerNotified ? 1 : 0)}', '{TurnId}', '{(EnableDailyNotified ? 1 : 0)}', '{(DailyNotified ? 1 : 0)}')";
             Console.WriteLine(sql);
             var rows = Program.Database.ExecuteNonQuery(sql);
 
@@ -30,7 +32,7 @@ namespace CiviBotti {
         /// <exception cref="DatabaseUnknownType">Condition.</exception>
         /// <exception cref="DatabaseQueryFail">Condition.</exception>
         public bool UpdateCurrent() {
-            var sql = $"UPDATE games SET currentp = {CurrentPlayer.SteamId}, notified = {(TurntimerNotified ? 1 : 0)}, turnid = '{TurnId}' WHERE gameid = {GameId}";
+            var sql = $"UPDATE games SET currentp = {CurrentPlayer.SteamId}, notified = {(TurntimerNotified ? 1 : 0)}, enableDailyNotified = {{(EnableDailyNotified ? 1 : 0)}}, dailyNotified = {{(DailyNotified ? 1 : 0)}}, turnid = '{TurnId}' WHERE gameid = {GameId}";
 
             Console.WriteLine(sql);
             var rows = Program.Database.ExecuteNonQuery(sql);
@@ -106,7 +108,9 @@ namespace CiviBotti {
                     Players = new List<PlayerData>(),
                     Chats = new List<long>(),
                     TurntimerNotified = reader.GetBoolean(4),
-                    TurnId = reader.GetString(5)
+                    TurnId = reader.GetString(5),
+                    EnableDailyNotified = reader.GetBoolean(6),
+                    DailyNotified = reader.GetBoolean(7),
                 };
 
 

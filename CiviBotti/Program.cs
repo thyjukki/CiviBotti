@@ -1346,6 +1346,10 @@ namespace CiviBotti
         }
 
         private static void DailyNotify(GameData game) {
+            if (!game.EnableDailyNotified) {
+                return;
+            }
+            
             string message;
             var rnd = new Random();
             switch (DateTime.UtcNow.Hour) {
@@ -1362,10 +1366,6 @@ namespace CiviBotti
                         _ => $"Civivuorossa herätyys {game.CurrentPlayer.Nametag}!"
                     };
 
-                    foreach (var chat in game.Chats) {
-                        Bot.SendText(chat, message);
-                    }
-
                     break;
                 }
                 case 17: {
@@ -1381,12 +1381,23 @@ namespace CiviBotti
                         _ => $"Etkai vai ollut menossa nukkumaan {game.CurrentPlayer.Nametag}?"
                     };
 
-                    foreach (var chat in game.Chats) {
-                        Bot.SendText(chat, message);
-                    }
-
                     break;
                 }
+                default:
+                    if (game.DailyNotified) {
+                        game.DailyNotified = false;
+                        game.UpdateCurrent();
+                    }
+                    return;
+            }
+
+            if (game.DailyNotified) {
+                return;
+            }
+            game.DailyNotified = true;
+            game.UpdateCurrent();
+            foreach (var chat in game.Chats) {
+                Bot.SendText(chat, message);
             }
         }
 
