@@ -1265,148 +1265,128 @@ namespace CiviBotti
                 game.TurnStarted = DateTime.Parse(current["Started"].ToString());
 
                 if (oldPlayerId != currentPlayerId) {
-                    foreach (var player in game.Players) {
-                        if (player.SteamId != currentPlayerId) {
-                            continue;
-                        }
-
-                        if (game.CurrentPlayer != null) {
-                            game.CurrentPlayer.NextEta = DateTime.MinValue;
-                        }
-
-                        game.CurrentPlayer?.UpdateDatabase();
-                        game.CurrentPlayer = player;
-                        game.TurntimerNotified = false;
-                        game.TurnStarted = DateTime.Now;
-                        game.TurnId = current["TurnId"].ToString();
-                        game.UpdateCurrent();
-
-                        player.SteamName = GetSteamUserName(player.SteamId);
-
-                        player.User = UserData.GetBySteamId(player.SteamId);
-
-                        if (player.User != null) {
-                            player.TgName = Bot.GetChat(player.User.Id)?.Username;
-                        }
-
-                        break;
-                    }
-
-                    foreach (var chat in game.Chats) {
-                        Console.WriteLine(chat);
-                        Bot.SendText(chat,
-                            game.CurrentPlayer != null
-                                ? $"It's now your turn {game.CurrentPlayer.Nametag}!"
-                                : "It's now your turn waitwhatthishsouldntbehappening?!");
-                    }
+                    ChangeTurns(game, currentPlayerId, current);
                 }
                 else {
-                    if (game.CurrentPlayer == null) {
-                        return;
-                    }
-
-                    if (game.CurrentPlayer.NextEta == DateTime.MinValue) {
-                        if (game.TurntimerNotified) return;
-                        var turnTimer = GetTurntimer(game, game.CurrentPlayer);
-                        if (!turnTimer.HasValue) return;
-                        if (!(game.TurnStarted + turnTimer.Value < DateTime.UtcNow)) return;
-                        game.TurntimerNotified = true;
-                        game.UpdateCurrent();
-                        foreach (var chat in game.Chats) {
-                            Bot.SendText(chat, $"Turn timer kärsii {game.CurrentPlayer.Nametag}");
-                        }
-                    }
-                    else {
-                        if (game.CurrentPlayer.NextEta >= DateTime.Now) {
-                            return;
-                        }
-
-                        game.CurrentPlayer.NextEta = DateTime.MinValue;
-                        game.CurrentPlayer.UpdateDatabase();
-                        foreach (var chat in game.Chats) {
-                            Bot.SendText(chat, $"Aikamääreistä pidetään kiinni {game.CurrentPlayer.Nametag}");
-                        }
-                    }
-
-                    if (game.TurntimerNotified) {
-                        string message;
-                        var rnd = new Random();
-                        if (DateTime.UtcNow.Hour == 7) {
-                            switch (rnd.Next(0, 8)) {
-                                case 0:
-                                    message = $"Uusi päivä, uusi vuoro {game.CurrentPlayer.Nametag}";
-                                    break;
-                                case 1:
-                                    message = $"Linnut laulaa ja vuorot tehää {game.CurrentPlayer.Nametag}";
-                                    break;
-                                case 2:
-                                    message = $"Kahvit ja vuorot tulille {game.CurrentPlayer.Nametag}";
-                                    break;
-                                case 3:
-                                    message = $"Ylös ulos ja civille {game.CurrentPlayer.Nametag}";
-                                    break;
-                                case 4:
-                                    message = $"Welcome back commander {game.CurrentPlayer.Nametag}";
-                                    break;
-                                case 5:
-                                    message = $"Help us {game.CurrentPlayer.Nametag}, your our only hope";
-                                    break;
-                                case 6:
-                                    message = $"Nukuitko hyvin hyvin {game.CurrentPlayer.Nametag}?";
-                                    break;
-                                case 7:
-                                    message = $"Aikanen vuoro kaupungin nappaa {game.CurrentPlayer.Nametag}";
-                                    break;
-                                default:
-                                    message = $"Civivuorossa herätyys {game.CurrentPlayer.Nametag}!";
-                                    break;
-                            }
-
-                            foreach (var chat in game.Chats) {
-                                Bot.SendText(chat, message);
-                            }
-                        }
-                        else if (DateTime.UtcNow.Hour == 17) {
-                            switch (rnd.Next(0, 8)) {
-                                case 0:
-                                    message = $"Muista pestä hampaat ja tehdä vuoro {game.CurrentPlayer.Nametag}";
-                                    break;
-                                case 1:
-                                    message = $"Älä unohda vuoroasi {game.CurrentPlayer.Nametag}";
-                                    break;
-                                case 2:
-                                    message = $"Just one more turn {game.CurrentPlayer.Nametag}";
-                                    break;
-                                case 3:
-                                    message = $"All your turn are belong to {game.CurrentPlayer.Nametag}";
-                                    break;
-                                case 4:
-                                    message = $"It looks like you were trying to sleep {game.CurrentPlayer.Nametag}";
-                                    break;
-                                case 5:
-                                    message =
-                                        $"Tee vuoro ja nukkumaan {game.CurrentPlayer.Nametag}. Muuta neuvoa ei tule";
-                                    break;
-                                case 6:
-                                    message = $"Aina voi laittaa lomatilan päälle {game.CurrentPlayer.Nametag}";
-                                    break;
-                                case 7:
-                                    message = $"Älä anna yöunien pilataa civiä {game.CurrentPlayer.Nametag}";
-                                    break;
-                                default:
-                                    message = $"Etkai vai ollut menossa nukkumaan {game.CurrentPlayer.Nametag}?";
-                                    break;
-                            }
-
-                            foreach (var chat in game.Chats) {
-                                Bot.SendText(chat, message);
-                            }
-                        }
-                    }
+                    CheckTurnNotifications(game);
                 }
             }
             catch (Exception ex) {
                 Console.WriteLine(ex);
+            }
+        }
+
+        private static void CheckTurnNotifications(GameData game) {
+            if (game.CurrentPlayer == null) {
+                return;
+            }
+
+            if (game.CurrentPlayer.NextEta == DateTime.MinValue) {
+                if (game.TurntimerNotified) {
+                    DailyNotify(game);
+                    return;
+                }
+                var turnTimer = GetTurntimer(game, game.CurrentPlayer);
+                if (!turnTimer.HasValue) return;
+                if (!(game.TurnStarted + turnTimer.Value < DateTime.UtcNow)) return;
+                game.TurntimerNotified = true;
+                game.UpdateCurrent();
+                foreach (var chat in game.Chats) {
+                    Bot.SendText(chat, $"Turn timer kärsii {game.CurrentPlayer.Nametag}");
+                }
+            }
+            else {
+                if (game.CurrentPlayer.NextEta >= DateTime.Now) {
+                    return;
+                }
+
+                game.CurrentPlayer.NextEta = DateTime.MinValue;
+                game.CurrentPlayer.UpdateDatabase();
+                foreach (var chat in game.Chats) {
+                    Bot.SendText(chat, $"Aikamääreistä pidetään kiinni {game.CurrentPlayer.Nametag}");
+                }
+            }
+        }
+
+        private static void ChangeTurns(GameData game, string currentPlayerId, JToken current) {
+            foreach (var player in game.Players) {
+                if (player.SteamId != currentPlayerId) {
+                    continue;
+                }
+
+                if (game.CurrentPlayer != null) {
+                    game.CurrentPlayer.NextEta = DateTime.MinValue;
+                }
+
+                game.CurrentPlayer?.UpdateDatabase();
+                game.CurrentPlayer = player;
+                game.TurntimerNotified = false;
+                game.TurnStarted = DateTime.Now;
+                game.TurnId = current["TurnId"].ToString();
+                game.UpdateCurrent();
+
+                player.SteamName = GetSteamUserName(player.SteamId);
+
+                player.User = UserData.GetBySteamId(player.SteamId);
+
+                if (player.User != null) {
+                    player.TgName = Bot.GetChat(player.User.Id)?.Username;
+                }
+
+                break;
+            }
+
+            foreach (var chat in game.Chats) {
+                Console.WriteLine(chat);
+                Bot.SendText(chat,
+                    game.CurrentPlayer != null
+                        ? $"It's now your turn {game.CurrentPlayer.Nametag}!"
+                        : "It's now your turn waitwhatthishsouldntbehappening?!");
+            }
+        }
+
+        private static void DailyNotify(GameData game) {
+            string message;
+            var rnd = new Random();
+            switch (DateTime.UtcNow.Hour) {
+                case 7: {
+                    message = rnd.Next(0, 8) switch {
+                        0 => $"Uusi päivä, uusi vuoro {game.CurrentPlayer.Nametag}",
+                        1 => $"Linnut laulaa ja vuorot tehää {game.CurrentPlayer.Nametag}",
+                        2 => $"Kahvit ja vuorot tulille {game.CurrentPlayer.Nametag}",
+                        3 => $"Ylös ulos ja civille {game.CurrentPlayer.Nametag}",
+                        4 => $"Welcome back commander {game.CurrentPlayer.Nametag}",
+                        5 => $"Help us {game.CurrentPlayer.Nametag}, your our only hope",
+                        6 => $"Nukuitko hyvin hyvin {game.CurrentPlayer.Nametag}?",
+                        7 => $"Aikanen vuoro kaupungin nappaa {game.CurrentPlayer.Nametag}",
+                        _ => $"Civivuorossa herätyys {game.CurrentPlayer.Nametag}!"
+                    };
+
+                    foreach (var chat in game.Chats) {
+                        Bot.SendText(chat, message);
+                    }
+
+                    break;
+                }
+                case 17: {
+                    message = rnd.Next(0, 8) switch {
+                        0 => $"Muista pestä hampaat ja tehdä vuoro {game.CurrentPlayer.Nametag}",
+                        1 => $"Älä unohda vuoroasi {game.CurrentPlayer.Nametag}",
+                        2 => $"Just one more turn {game.CurrentPlayer.Nametag}",
+                        3 => $"All your turn are belong to {game.CurrentPlayer.Nametag}",
+                        4 => $"It looks like you were trying to sleep {game.CurrentPlayer.Nametag}",
+                        5 => $"Tee vuoro ja nukkumaan {game.CurrentPlayer.Nametag}. Muuta neuvoa ei tule",
+                        6 => $"Aina voi laittaa lomatilan päälle {game.CurrentPlayer.Nametag}",
+                        7 => $"Älä anna yöunien pilataa civiä {game.CurrentPlayer.Nametag}",
+                        _ => $"Etkai vai ollut menossa nukkumaan {game.CurrentPlayer.Nametag}?"
+                    };
+
+                    foreach (var chat in game.Chats) {
+                        Bot.SendText(chat, message);
+                    }
+
+                    break;
+                }
             }
         }
 
