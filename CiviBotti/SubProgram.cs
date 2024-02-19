@@ -653,7 +653,7 @@ namespace CiviBotti
             var minuteGroup = Regex.Match(innerHtml, "(\\d+) minute", RegexOptions.None, TimeSpan.FromMilliseconds(100));
             var dayGroup = Regex.Match(innerHtml, "(\\d+) day", RegexOptions.None, TimeSpan.FromMilliseconds(100));
             
-            stringBuilder.Append($"{player.NameTag} turntimer");
+            stringBuilder.Append($"{player.Name} turntimer");
             if (dayGroup.Success && int.TryParse(dayGroup.Groups[1].Value, out var day) && day > 0) {
                 stringBuilder.Append($" {day}");
                 stringBuilder.Append(day == 1 ? " päivä" : " päivää");

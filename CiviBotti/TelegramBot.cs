@@ -19,19 +19,19 @@ namespace CiviBotti
         private readonly List<ChatCallback> _replyCallbacks = new ();
 
         #region variables
-        private readonly TelegramBotClient _bot;
+        public readonly TelegramBotClient bot;
 
         public string TechnicalName { get; }
         #endregion
 
         #region constructors
         public TelegramBot(string token) {
-            _bot = new TelegramBotClient(token);//Test
-            _bot.OnCallbackQuery += BotOnCallbackQueryReceived;
-            _bot.OnMessage += BotOnMessageReceived;
-            _bot.OnReceiveError += BotOnReceiveError;
+            bot = new TelegramBotClient(token);//Test
+            bot.OnCallbackQuery += BotOnCallbackQueryReceived;
+            bot.OnMessage += BotOnMessageReceived;
+            bot.OnReceiveError += BotOnReceiveError;
 
-            TechnicalName = _bot.GetMeAsync().Result.Username;
+            TechnicalName = bot.GetMeAsync().Result.Username;
         }
 
 
@@ -40,18 +40,18 @@ namespace CiviBotti
         #region public functions
         public void StartReceiving()
         {
-            _bot.StartReceiving();
+            bot.StartReceiving();
         }
 
         public void StopReceiving()
         {
-            _bot.StopReceiving();
+            bot.StopReceiving();
         }
 
         public void SendText(long chat, string msg, ReplyMarkup replyMarkup = null) {
             try
             {
-                _bot.SendTextMessageAsync(chat, msg, replyMarkup: replyMarkup);
+                bot.SendTextMessageAsync(chat, msg, replyMarkup: replyMarkup);
             }
             catch (ApiRequestException ex)
             {
@@ -67,7 +67,7 @@ namespace CiviBotti
         {
             try
             {
-                _bot.SendChatActionAsync(chatId, action);
+                bot.SendChatActionAsync(chatId, action);
             }
             catch (ApiRequestException ex)
             {
@@ -77,21 +77,21 @@ namespace CiviBotti
 
         public ChatMember[] GetAdministrators(long chatId)
         {
-            return _bot.GetChatAdministratorsAsync(chatId).Result;
+            return bot.GetChatAdministratorsAsync(chatId).Result;
         }
 
         public async Task<Chat> GetChat(long userId) {
-            return await _bot.GetChatAsync(userId);
+            return await bot.GetChatAsync(userId);
         }
 
         public Message SendVoice(long chatId, FileToSend file)
         {
-            return _bot.SendVoiceAsync(chatId, file).Result;
+            return bot.SendVoiceAsync(chatId, file).Result;
         }
 
         public Message SendFile(long chatId, FileToSend file)
         {
-            return _bot.SendDocumentAsync(chatId, file).Result;
+            return bot.SendDocumentAsync(chatId, file).Result;
         }
 
         public void AddReplyGet(int user, long chat, Action<Message> callback)
@@ -110,7 +110,7 @@ namespace CiviBotti
         }
 
         public Stream GetFileAsStream(File file) {
-            var test = _bot.GetFileAsync(file.FileId).Result;
+            var test = bot.GetFileAsync(file.FileId).Result;
             
             return test.FileStream;
         }
@@ -125,7 +125,7 @@ namespace CiviBotti
         }
 
         private void BotOnCallbackQueryReceived(object sender, CallbackQueryEventArgs callbackQueryEventArgs) {
-            _bot.AnswerCallbackQueryAsync(callbackQueryEventArgs.CallbackQuery.Id, $"Received {callbackQueryEventArgs.CallbackQuery.Data}");
+            bot.AnswerCallbackQueryAsync(callbackQueryEventArgs.CallbackQuery.Id, $"Received {callbackQueryEventArgs.CallbackQuery.Data}");
         }
 
 
@@ -146,7 +146,7 @@ namespace CiviBotti
             var groupstring = "";
 
             if (message.Chat.Type != ChatType.Private) groupstring = $" ({message.Chat.Username})";
-            var user = await _bot.GetChatAsync(userId);
+            var user = await bot.GetChatAsync(userId);
             Console.WriteLine($@"{DateTime.Now:MM\/dd\/yyyy HH:mm} [{user.Username}]{groupstring} {message.Text}");
 
 

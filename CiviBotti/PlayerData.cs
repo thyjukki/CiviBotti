@@ -32,7 +32,7 @@ namespace CiviBotti
 
         public string NameTag {
             get {
-                if (TgName.Length > 0) {
+                if (!string.IsNullOrEmpty(TgName)) {
                     return "@" + TgName;
                 }
 
