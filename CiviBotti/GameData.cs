@@ -6,15 +6,15 @@ namespace CiviBotti {
 
     public class GameData {
         public long GameId { get; set;}
-        public UserData Owner { get; set;}
+        public UserData? Owner { get; set; }
         private long _ownerRaw;
-        public List<long> Chats { get; set;}
-        public PlayerData CurrentPlayer { get; set;}
+        public List<long> Chats { get; } = new();
+        public PlayerData? CurrentPlayer { get; set;}
         public DateTime TurnStarted { get; set;}
         public bool TurntimerNotified { get; set;}
         public bool DailyNotified { get; set;}
         public bool EnableDailyNotified { get; set;}
-        private string _currentPlayerRaw;
+        private string _currentPlayerRaw = "";
 
         public List<PlayerData> Players { get; set;}
         public string Name { get; set;}
@@ -108,7 +108,6 @@ namespace CiviBotti {
                     Name = reader.GetString(2),
                     _currentPlayerRaw = reader.GetString(3),
                     Players = new List<PlayerData>(),
-                    Chats = new List<long>(),
                     TurntimerNotified = reader.GetBoolean(4),
                     TurnId = reader.GetString(5),
                     EnableDailyNotified = reader.GetBoolean(6),

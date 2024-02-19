@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Security.Permissions;
 using Microsoft.CognitiveServices.Speech;
 using Microsoft.CognitiveServices.Speech.Audio;
 using System.Text.RegularExpressions;
@@ -24,22 +23,23 @@ namespace CiviBotti
 {
     using System.Text;
     using HtmlAgilityPack;
-    using Microsoft.Extensions.Primitives;
 
-    public class Program
+    public static class Program
     {
-        public static List<GameData> Games;
+        public static List<GameData> Games { get; private set; } = new();
 
-        public static Database Database;
+        public static Database? Database { get; private set; }
 
         private static readonly HttpClient HttpInstance = new ();
 
-        public static TelegramBot Bot;
+        public static TelegramBot Bot { get; private set; }
 
         private static IConfigurationRoot Configs { get; set; } = null!;
+        
+        
+        public static string GmrUrl { get; private set; } = "";
 
         [STAThread]
-        [SecurityPermission(SecurityAction.Demand, Flags = SecurityPermissionFlag.ControlAppDomain)]
         public static void Main() {
             var builder = new ConfigurationBuilder()
                 .AddXmlFile("bot.config", optional: true)
@@ -52,7 +52,7 @@ namespace CiviBotti
             Database = new Database(dbType, Configs);
 
             Bot = new TelegramBot(Configs["BOT_TOKEN"]);
-
+            GmrUrl = Configs["GMR_URL"];
 
             Games = GameData.GetAllGames();
             foreach (var game in Games) {
@@ -165,7 +165,6 @@ namespace CiviBotti
             }
 
             newGame.Players = new List<PlayerData>();
-            newGame.Chats = new List<long>();
             newGame.Name = (string)data["Name"];
             var current = data["CurrentTurn"];
 
@@ -205,7 +204,7 @@ namespace CiviBotti
         }
 
         public static void ParseCommand(string cmd, Message message) {
-            if (message == null || message.Type != MessageType.TextMessage) {
+            if (message.Type != MessageType.TextMessage) {
                 return;
             }
 
@@ -278,10 +277,47 @@ namespace CiviBotti
                     SubmitTurn(message, chat);
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    throw new ArgumentOutOfRangeException(nameof(cmd), $"Command {nameof(command)} not in command list");
             }
         }
 
+        
+
+
+        private static void SubmitTurnGetUploadCallback(Message originalMsg, Message callbackMsg, UserData callerUser,
+            UserData selectedUser, GameData selectedGame) {
+            if (callbackMsg.Type != MessageType.DocumentMessage) {
+                Bot.AddReplyGet(originalMsg.From.Id, originalMsg.Chat.Id, message => SubmitTurnGetUploadCallback(originalMsg, message, callerUser, selectedUser, selectedGame));
+                Bot.SendText(originalMsg.Chat.Id, "Respond by uploading a file");
+                return;
+            }
+
+            Bot.SendText(originalMsg.Chat.Id, "Submitting turn");
+            Bot.SetChatAction(originalMsg.Chat.Id, ChatAction.UploadDocument);
+            UploadSave(selectedUser, callerUser, selectedGame, callbackMsg.Document);
+        }
+        
+        private static void SubmitTurnGetSelectedCallback(Message originalMsg,Message callbackMsg, UserData callerUser) {
+            foreach (var game in Games) {
+                var user = game.CurrentPlayer?.User;
+                if (user == null) {
+                    continue;
+                }
+
+                if (!user.Subs.Exists(sub => sub.SubId == callerUser.Id) && user.SteamId != callerUser.SteamId) {
+                    continue;
+                }
+
+                if ($"{user.Name}@{game.Name}" != callbackMsg.Text) {
+                    continue;
+                }
+
+                Bot.AddReplyGet(originalMsg.From.Id, originalMsg.Chat.Id, message => SubmitTurnGetUploadCallback(originalMsg, message, callerUser, user, game));
+                Bot.SendText(originalMsg.Chat.Id, "Upload the file");
+                return;
+            }
+        }
+        
         private static void SubmitTurn(Message message, Chat chat) {
             if (chat.Type != ChatType.Private) {
                 Bot.SendText(message.Chat.Id, "This can only be done in private!");
@@ -290,48 +326,11 @@ namespace CiviBotti
 
             Bot.SetChatAction(message.Chat.Id, ChatAction.Typing);
 
-            UserData selectedUser = null;
-            GameData selectedGame = null;
-
             var callerUser = UserData.Get(message.From.Id);
 
             if (callerUser == null) {
                 Bot.SendText(chat, "You are not registered in any games");
                 return;
-            }
-
-            void GetSelectedCallback(Message msg) {
-                foreach (var game in Games) {
-                    var user = game.CurrentPlayer.User;
-                    if (user == null) {
-                        continue;
-                    }
-
-                    if (!user.Subs.Exists(_ => _.SubId == callerUser.Id) && user.SteamId != callerUser.SteamId) {
-                        continue;
-                    }
-
-                    if ($"{user.Name}@{game.Name}" == msg.Text) {
-                        selectedUser = user;
-                        selectedGame = game;
-                        Bot.AddReplyGet(message.From.Id, chat.Id, GetUploadCallback);
-                        Bot.SendText(message.Chat.Id, "Upload the file");
-                        return;
-                    }
-                }
-            }
-
-            void GetUploadCallback(Message msg) {
-                if (msg.Type != MessageType.DocumentMessage) {
-                    Bot.AddReplyGet(message.From.Id, chat.Id, GetUploadCallback);
-                    Bot.SendText(message.Chat.Id, "Respond by uploading a file");
-                    return;
-                }
-
-
-                Bot.SendText(message.Chat.Id, "Submiting turn");
-                Bot.SetChatAction(message.Chat.Id, ChatAction.UploadDocument);
-                UploadSave(selectedUser, callerUser, selectedGame, msg.Document);
             }
 
             var test = new List<KeyboardButton>();
@@ -357,10 +356,30 @@ namespace CiviBotti
                 Selective = true
             };
 
-            Bot.AddReplyGet(message.From.Id, chat.Id, GetSelectedCallback);
+            Bot.AddReplyGet(message.From.Id, chat.Id, callbackMsg => SubmitTurnGetSelectedCallback(message, callbackMsg, callerUser));
             Bot.SendText(message.Chat.Id, "Chose game to submit save to", forceReply);
         }
 
+        private static void DoTurnGetSelectedCallback(Message originalMsg, Message callbackMessage, UserData callerUser) {
+            foreach (var game in Games) {
+                var user = game.CurrentPlayer?.User;
+                if (user == null) {
+                    continue;
+                }
+
+                if (!user.Subs.Exists(sub => sub.SubId == callerUser.Id) && user.SteamId != callerUser.SteamId) {
+                    continue;
+                }
+
+                if ($"{user.Name}@{game.Name}" != callbackMessage.Text) {
+                    continue;
+                }
+
+                Bot.SetChatAction(originalMsg.Chat.Id, ChatAction.UploadDocument);
+                DownloadSave(user, callerUser, game);
+                return;
+            }
+        }
         private static void DoTurn(Message message, Chat chat) {
             Bot.SetChatAction(message.Chat.Id, ChatAction.Typing);
 
@@ -375,41 +394,21 @@ namespace CiviBotti
                 Bot.SendText(chat, "You are not registered in any games", new ReplyKeyboardRemove());
                 return;
             }
-
-            void GetSelectedCallback(Message msg) {
-                foreach (var game in Games) {
-                    var user = game.CurrentPlayer.User;
-                    if (user == null) {
-                        continue;
-                    }
-
-                    if (!user.Subs.Exists(sub => sub.SubId == callerUser.Id) && user.SteamId != callerUser.SteamId) {
-                        continue;
-                    }
-
-                    if ($"{user.Name}@{game.Name}" != msg.Text) {
-                        continue;
-                    }
-
-                    Bot.SetChatAction(message.Chat.Id, ChatAction.UploadDocument);
-                    DownloadSave(user, callerUser, game);
-                    return;
-                }
-            }
+            
 
             var test = new List<KeyboardButton>();
             foreach (var game in Games) {
-                var user = game.CurrentPlayer.User;
+                var user = game.CurrentPlayer?.User;
                 if (user == null) {
                     continue;
                 }
 
-                if (user.Subs.Exists(_ => _.SubId == callerUser.Id) || user.SteamId == callerUser.SteamId)
+                if (user.Subs.Exists(sub => sub.SubId == callerUser.Id) || user.SteamId == callerUser.SteamId)
                     test.Add(new KeyboardButton($"{user.Name}@{game.Name}"));
             }
 
             if (test.Count == 0) {
-                Bot.SendText(message.Chat.Id, "You can not play anyones turn at the moment", new ReplyKeyboardRemove());
+                Bot.SendText(message.Chat.Id, "You can not play anyone's turn at the moment", new ReplyKeyboardRemove());
                 return;
             }
 
@@ -420,14 +419,15 @@ namespace CiviBotti
                 Selective = true
             };
 
-            Bot.AddReplyGet(message.From.Id, chat.Id, GetSelectedCallback);
+            Bot.AddReplyGet(message.From.Id, chat.Id,
+                callbackMsg => DoTurnGetSelectedCallback(message, callbackMsg, callerUser));
             Bot.SendText(message.Chat.Id, "Chose game to sub", forceReply);
         }
 
         private static void DownloadSave(UserData user, UserData callerUser, GameData game) {
             HttpInstance
                 .GetAsync(
-                    $"http://multiplayerrobot.com/api/Diplomacy/GetLatestSaveFileBytes?authKey={user.AuthKey}&gameId={game.GameId}")
+                    $"{GmrUrl}api/Diplomacy/GetLatestSaveFileBytes?authKey={user.AuthKey}&gameId={game.GameId}")
                 .ContinueWith(
                     (requestTask) => {
                         var response = requestTask.Result;
@@ -443,7 +443,7 @@ namespace CiviBotti
         }
 
         private static void UploadSave(UserData user, UserData callerUser, GameData game, File doc) {
-            var uri = new Uri("http://multiplayerrobot.com/");
+            var uri = new Uri(GmrUrl);
             var httpClient = new HttpClient();
             httpClient.BaseAddress = uri;
             httpClient.DefaultRequestHeaders.ExpectContinue = false;
@@ -614,7 +614,7 @@ namespace CiviBotti
                 return;
             }
 
-            var url = $"http://multiplayerrobot.com/Game/Details?id={selectedGame.GameId}";
+            var url = $"{GmrUrl}Game/Details?id={selectedGame.GameId}";
             var response = HttpInstance.PostAsync(url, null).Result;
             if (!response.IsSuccessStatusCode) {
                 Bot.SendText(chat, "Problem connecting to gmr service");
@@ -675,7 +675,7 @@ namespace CiviBotti
                 return;
             }
 
-            var url = $"http://multiplayerrobot.com/Game/Details?id={selectedGame.GameId}";
+            var url = $"{GmrUrl}Game/Details?id={selectedGame.GameId}";
             var response = HttpInstance.PostAsync(url, null).Result;
             if (!response.IsSuccessStatusCode) {
                 Bot.SendText(chat, "Problem connecting to gmr service");
@@ -929,54 +929,13 @@ namespace CiviBotti
                 return;
             }
 
-            if (selectedGame.CurrentPlayer.User == null) {
+            if (selectedGame.CurrentPlayer?.User == null) {
                 Bot.SendText(message.Chat.Id, "Current player has not registered");
                 return;
             }
 
             if (selectedGame.CurrentPlayer.User.Id != message.From.Id) {
-                var stringBuilder = new StringBuilder();
-                stringBuilder.Append($"{selectedGame.CurrentPlayer.Nametag} ");
-                TimeSpan diff;
-
-                if (selectedGame.CurrentPlayer.NextEta < DateTime.Now) {
-                    var turnTimer = GetTurntimer(selectedGame, selectedGame.CurrentPlayer);
-                    if (!turnTimer.HasValue) {
-                        Bot.SendText(message.Chat.Id, $"Uusi turntimer tulossa! {selectedGame.CurrentPlayer.Nametag}");
-                        return;
-                    }
-
-                    var turnTimerHit = selectedGame.TurnStarted + turnTimer.Value;
-                    diff = (turnTimerHit - DateTime.UtcNow).Duration();
-
-                    stringBuilder.Append(turnTimerHit <= DateTime.UtcNow
-                        ? $"turntimer kärsinyt:"
-                        : $"turntimer alkaa kärsimään:");
-                }
-                else {
-                    stringBuilder.Append("aikaa jäljellä:");
-                    diff = (selectedGame.CurrentPlayer.NextEta - DateTime.Now).Duration();
-                }
-
-                var diffMinutes = diff.Minutes % 60;
-                var diffHours = diff.Hours % 24;
-                var diffDays = (diff.Hours - diffHours) / 24;
-                if (diffDays > 0) {
-                    stringBuilder.Append($" {diffDays}");
-                    stringBuilder.Append(diffDays == 1 ? " päivä" : " päivää");
-                }
-
-                if (diffHours > 0) {
-                    stringBuilder.Append($" {diffHours}");
-                    stringBuilder.Append(diffHours == 1 ? " tunti" : " tuntia");
-                }
-
-                if (diffMinutes > 0) {
-                    stringBuilder.Append($" {diffMinutes}");
-                    stringBuilder.Append(diffMinutes == 1 ? " minuutti" : " minuuttia");
-                }
-
-                Bot.SendText(message.Chat.Id, stringBuilder.ToString());
+                GetOtherPlayerEta(message, selectedGame, selectedGame.CurrentPlayer);
                 return;
             }
 
@@ -999,25 +958,8 @@ namespace CiviBotti
                 minute = DateTime.Now.Minute + 10;
             }
             else {
-                var hoursMins = args[1].Split(':');
-                if (!int.TryParse(hoursMins[0], out hour)) {
-                    Bot.SendText(message.Chat.Id,
-                        "Please provide time in hours '/eta hours(:minutes(:day)) or /eta nyt|kohta'!");
+                if (!ParseTime(message, args, out hour, ref minute, ref day)) {
                     return;
-                }
-
-                if (hoursMins.Length > 1) {
-                    if (!int.TryParse(hoursMins[1], out minute)) {
-                        Bot.SendText(message.Chat.Id,
-                            "Please provide time in hours '/eta hours(:minutes(:day)) or /eta nyt|kohta'!");
-                        return;
-                    }
-
-                    if (hoursMins.Length > 2 && !int.TryParse(hoursMins[2], out day)) {
-                        Bot.SendText(message.Chat.Id,
-                            "Please provide time in hours '/eta hours(:minutes(:day)) or /eta nyt|kohta'!");
-                        return;
-                    }
                 }
             }
 
@@ -1038,6 +980,79 @@ namespace CiviBotti
             selectedGame.CurrentPlayer.UpdateDatabase();
             Bot.SendText(message.Chat.Id,
                 $"{selectedGame.CurrentPlayer.Name} eta set to {selectedGame.CurrentPlayer.NextEta:HH:mm ddd}");
+        }
+
+        private static bool ParseTime(Message message, IReadOnlyList<string> args, out int hour, ref int minute, ref int day) {
+            var hoursMins = args[1].Split(':');
+            if (!int.TryParse(hoursMins[0], out hour)) {
+                Bot.SendText(message.Chat.Id,
+                    "Please provide time in hours '/eta hours(:minutes(:day)) or /eta nyt|kohta'!");
+                return false;
+            }
+
+            if (hoursMins.Length <= 1) {
+                return true;
+            }
+
+            if (!int.TryParse(hoursMins[1], out minute)) {
+                Bot.SendText(message.Chat.Id,
+                    "Please provide time in hours '/eta hours(:minutes(:day)) or /eta nyt|kohta'!");
+                return false;
+            }
+
+            if (hoursMins.Length <= 2 || int.TryParse(hoursMins[2], out day)) {
+                return true;
+            }
+
+            Bot.SendText(message.Chat.Id,
+                "Please provide time in hours '/eta hours(:minutes(:day)) or /eta nyt|kohta'!");
+            return false;
+
+        }
+
+        private static void GetOtherPlayerEta(Message message, GameData selectedGame, PlayerData player) {
+            var stringBuilder = new StringBuilder();
+            stringBuilder.Append($"{player.Nametag} ");
+            TimeSpan diff;
+
+            if (player.NextEta < DateTime.Now) {
+                var turnTimer = GetTurntimer(selectedGame, player);
+                if (!turnTimer.HasValue) {
+                    Bot.SendText(message.Chat.Id, $"Uusi turntimer tulossa! {player.Nametag}");
+                    return;
+                }
+
+                var turnTimerHit = selectedGame.TurnStarted + turnTimer.Value;
+                diff = (turnTimerHit - DateTime.UtcNow).Duration();
+
+                stringBuilder.Append(turnTimerHit <= DateTime.UtcNow
+                    ? $"turntimer kärsinyt:"
+                    : $"turntimer alkaa kärsimään:");
+            }
+            else {
+                stringBuilder.Append("aikaa jäljellä:");
+                diff = (player.NextEta - DateTime.Now).Duration();
+            }
+
+            var diffMinutes = diff.Minutes % 60;
+            var diffHours = diff.Hours % 24;
+            var diffDays = (diff.Hours - diffHours) / 24;
+            if (diffDays > 0) {
+                stringBuilder.Append($" {diffDays}");
+                stringBuilder.Append(diffDays == 1 ? " päivä" : " päivää");
+            }
+
+            if (diffHours > 0) {
+                stringBuilder.Append($" {diffHours}");
+                stringBuilder.Append(diffHours == 1 ? " tunti" : " tuntia");
+            }
+
+            if (diffMinutes > 0) {
+                stringBuilder.Append($" {diffMinutes}");
+                stringBuilder.Append(diffMinutes == 1 ? " minuutti" : " minuuttia");
+            }
+
+            Bot.SendText(message.Chat.Id, stringBuilder.ToString());
         }
 
         private static void Help(Message message, Chat chat) {
@@ -1159,7 +1174,7 @@ namespace CiviBotti
 
 
         private static TimeSpan? GetTurntimer(GameData selectedGame, PlayerData player) {
-            var url = $"http://multiplayerrobot.com/Game/Details?id={selectedGame.GameId}";
+            var url = $"{GmrUrl}Game/Details?id={selectedGame.GameId}";
             var response = HttpInstance.PostAsync(url, null).Result;
             if (!response.IsSuccessStatusCode) {
                 return null;
@@ -1361,7 +1376,7 @@ namespace CiviBotti
 
         public static JToken GetGameData(GameData game) {
             var url =
-                $"http://multiplayerrobot.com/api/Diplomacy/GetGamesAndPlayers?playerIDText={game.Owner.SteamId}&authKey={game.Owner.AuthKey}";
+                $"{GmrUrl}api/Diplomacy/GetGamesAndPlayers?playerIDText={game.Owner.SteamId}&authKey={game.Owner.AuthKey}";
 
 
             var request = HttpInstance.GetAsync(url).Result;
@@ -1373,7 +1388,7 @@ namespace CiviBotti
         }
 
         private static string GetPlayerIdFromAuthkey(string authkey) {
-            var url = $"http://multiplayerrobot.com/api/Diplomacy/AuthenticateUser?authKey={authkey}";
+            var url = $"{GmrUrl}api/Diplomacy/AuthenticateUser?authKey={authkey}";
 
             var request = HttpInstance.GetAsync(url).Result;
             var html = request.Content.ReadAsStringAsync().Result;
