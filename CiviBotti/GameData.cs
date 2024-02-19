@@ -5,15 +5,15 @@ namespace CiviBotti {
     using System.Globalization;
 
     public class GameData {
-        public long GameId { get; set;}
+        public long GameId { get; init;}
         public UserData? Owner { get; set; }
         private long _ownerRaw;
         public List<long> Chats { get; } = new();
-        public PlayerData? CurrentPlayer { get; set;}
+        public PlayerData CurrentPlayer { get; set;}
         public DateTime TurnStarted { get; set;}
         public bool TurntimerNotified { get; set;}
         public bool DailyNotified { get; set;}
-        public bool EnableDailyNotified { get; set;}
+        public bool EnableDailyNotified { get; private init;}
         private string _currentPlayerRaw = "";
 
         public List<PlayerData> Players { get; set;}

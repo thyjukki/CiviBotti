@@ -262,10 +262,10 @@ namespace CiviBotti
                     Help(message, chat);
                     break;
                 case Command.Turntimer:
-                    Turntimer(chat);
+                    Turntimers(chat, true);
                     break;
                 case Command.Turntimers:
-                    Turntimers(chat);
+                    Turntimers(chat, false);
                     break;
                 case Command.Listsubs:
                     ListSubs(message, chat);
@@ -607,34 +607,6 @@ namespace CiviBotti
             Bot.SendText(message.Chat.Id, "Chose the game", forceReply);
         }
 
-        private static void Turntimer(Chat chat) {
-            Bot.SetChatAction(chat.Id, ChatAction.Typing);
-            var selectedGame = Games.FirstOrDefault(game => game.Chats.Any(chatid => chatid == chat.Id));
-            if (selectedGame == null) {
-                Bot.SendText(chat, "No game added to this chat");
-                return;
-            }
-
-            var url = $"{GmrUrl}Game/Details?id={selectedGame.GameId}";
-            var response = HttpInstance.PostAsync(url, null).Result;
-            if (!response.IsSuccessStatusCode) {
-                Bot.SendText(chat, "Problem connecting to gmr service");
-                return;
-            }
-
-            var doc = new HtmlDocument();
-            doc.LoadHtml(response.Content.ReadAsStringAsync().Result);
-
-            var divs = doc.DocumentNode.SelectNodes("//div[@class=\"game-player average\"]");
-
-            var stringBuilder = new StringBuilder();
-            foreach (var innerHtml in divs.Select(div => div.InnerHtml)) {
-                PlayerTurntimeFromInnerHtml(selectedGame.CurrentPlayer, stringBuilder, innerHtml);
-            }
-            
-            Bot.SendText(chat, stringBuilder.ToString());
-        }
-
         private static void PlayerTurntimeFromInnerHtml(PlayerData player, StringBuilder stringBuilder, string innerHtml) {
             var idGroup = Regex.Match(innerHtml, @"/Community#\s*([\d+]*)", RegexOptions.None, TimeSpan.FromMilliseconds(100));
             if (idGroup.Success) {
@@ -668,7 +640,7 @@ namespace CiviBotti
             stringBuilder.Append('\n');
         }
 
-        private static void Turntimers(Chat chat) {
+        private static void Turntimers(Chat chat, bool onlyCurrent) {
             Bot.SetChatAction(chat.Id, ChatAction.Typing);
             var selectedGame = Games.FirstOrDefault(game => game.Chats.Any(chatId => chatId == chat.Id));
             if (selectedGame == null) {
@@ -690,6 +662,9 @@ namespace CiviBotti
 
             var stringBuilder = new StringBuilder();
             foreach (var player in selectedGame.Players) {
+                if (selectedGame.CurrentPlayer.SteamId != player.SteamId && onlyCurrent) {
+                    continue;
+                }
                 foreach (var innerHtml in divs.Select(div => div.InnerHtml)) {
                     PlayerTurntimeFromInnerHtml(player, stringBuilder, innerHtml);
                 }
@@ -1283,31 +1258,25 @@ namespace CiviBotti
         }
 
         private static void ChangeTurns(GameData game, string currentPlayerId, JToken current) {
-            foreach (var player in game.Players) {
-                if (player.SteamId != currentPlayerId) {
-                    continue;
-                }
+            var player = game.Players.Find(playerData => playerData.SteamId == currentPlayerId);
+            
+            if (player == null) {
+                throw new ArgumentNullException($"Player {currentPlayerId} not found in database!");
+            }
+            
+            game.CurrentPlayer.UpdateDatabase();
+            game.CurrentPlayer = player;
+            game.TurntimerNotified = false;
+            game.TurnStarted = DateTime.Now;
+            game.TurnId = current["TurnId"].ToString();
+            game.UpdateCurrent();
 
-                if (game.CurrentPlayer != null) {
-                    game.CurrentPlayer.NextEta = DateTime.MinValue;
-                }
+            player.SteamName = GetSteamUserName(player.SteamId);
 
-                game.CurrentPlayer?.UpdateDatabase();
-                game.CurrentPlayer = player;
-                game.TurntimerNotified = false;
-                game.TurnStarted = DateTime.Now;
-                game.TurnId = current["TurnId"].ToString();
-                game.UpdateCurrent();
+            player.User = UserData.GetBySteamId(player.SteamId);
 
-                player.SteamName = GetSteamUserName(player.SteamId);
-
-                player.User = UserData.GetBySteamId(player.SteamId);
-
-                if (player.User != null) {
-                    player.TgName = Bot.GetChat(player.User.Id).Username;
-                }
-
-                break;
+            if (player.User != null) {
+                player.TgName = Bot.GetChat(player.User.Id).Username;
             }
 
             foreach (var chat in game.Chats) {
