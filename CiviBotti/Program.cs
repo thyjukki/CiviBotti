@@ -17,19 +17,22 @@ using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
 using File = Telegram.Bot.Types.File;
-using HtmlDocument = HtmlAgilityPack.HtmlDocument;
 using Message = Telegram.Bot.Types.Message;
 using Timer = System.Timers.Timer;
 
 namespace CiviBotti
 {
+    using System.Text;
+    using HtmlAgilityPack;
+    using Microsoft.Extensions.Primitives;
+
     public class Program
     {
         public static List<GameData> Games;
 
         public static Database Database;
 
-        private static readonly HttpClient HttpInstance = new HttpClient();
+        private static readonly HttpClient HttpInstance = new ();
 
         public static TelegramBot Bot;
 
@@ -256,6 +259,9 @@ namespace CiviBotti
                 case Command.Turntimer:
                     Turntimer(chat);
                     break;
+                case Command.Turntimers:
+                    Turntimers(chat);
+                    break;
                 case Command.Listsubs:
                     ListSubs(message, chat);
                     break;
@@ -301,7 +307,7 @@ namespace CiviBotti
                         continue;
                     }
 
-                    if (!user.Subs.Exists(_ => _.SubId == callerUser.Id) && user != callerUser) {
+                    if (!user.Subs.Exists(_ => _.SubId == callerUser.Id) && user.SteamId != callerUser.SteamId) {
                         continue;
                     }
 
@@ -335,7 +341,7 @@ namespace CiviBotti
                     continue;
                 }
 
-                if (user.Subs.Exists(_ => _.SubId == callerUser.Id) || user == callerUser)
+                if (user.Subs.Exists(_ => _.SubId == callerUser.Id) || user.SteamId == callerUser.SteamId)
                     test.Add(new KeyboardButton($"{user.Name}@{game.Name}"));
             }
 
@@ -377,7 +383,7 @@ namespace CiviBotti
                         continue;
                     }
 
-                    if (!user.Subs.Exists(_ => _.SubId == callerUser.Id) && user != callerUser) {
+                    if (!user.Subs.Exists(sub => sub.SubId == callerUser.Id) && user.SteamId != callerUser.SteamId) {
                         continue;
                     }
 
@@ -398,7 +404,7 @@ namespace CiviBotti
                     continue;
                 }
 
-                if (user.Subs.Exists(_ => _.SubId == callerUser.Id) || user == callerUser)
+                if (user.Subs.Exists(_ => _.SubId == callerUser.Id) || user.SteamId == callerUser.SteamId)
                     test.Add(new KeyboardButton($"{user.Name}@{game.Name}"));
             }
 
@@ -487,8 +493,19 @@ namespace CiviBotti
                 return;
             }
 
+            var test = callerUser.Subs.Select(_ => new KeyboardButton($"{Bot.GetChat(_.SubId).Username}@{_.Game.Name}"))
+                .ToList();
+
+            test.Add(new KeyboardButton("cancel"));
+
+            var forceReply = new ReplyKeyboardMarkup(test.ToArray()) {
+                OneTimeKeyboard = true,
+                Selective = true
+            };
+            
+
             void GetSelectedCallback(Message msg) {
-                var sub = callerUser.Subs.Find(_ => $"{Bot.GetChat(_.SubId).Username}@{_.Game.Name}" == msg.Text);
+                var sub = callerUser.Subs.Find(sub => $"{Bot.GetChat(sub.SubId).Username}@{sub.Game.Name}" == msg.Text);
                 if (sub == null) {
                     return;
                 }
@@ -500,21 +517,13 @@ namespace CiviBotti
                 sub.RemoveSub();
                 if (user == null || game == null) {
                     Console.WriteLine("GetSelectedCallback weird case");
+                    Bot.SendText(chat,"Weird case, game or user null?");
+                    return;
                 }
 
                 Bot.SendText(chat, $"Removed {user.Name} subbing from {game.Name}", new ReplyKeyboardRemove());
                 Bot.SendText(user.Id, $"{callerUser.Name} revoked your sub rights from {game.Name}");
             }
-
-            var test = callerUser.Subs.Select(_ => new KeyboardButton($"{Bot.GetChat(_.SubId).Username}@{_.Game.Name}"))
-                .ToList();
-
-            test.Add(new KeyboardButton("cancel"));
-
-            var forceReply = new ReplyKeyboardMarkup(test.ToArray()) {
-                OneTimeKeyboard = true,
-                Selective = true
-            };
 
             Bot.AddReplyGet(message.From.Id, chat.Id, GetSelectedCallback);
             Bot.SendText(message.Chat.Id, "Chose sub to remove", forceReply);
@@ -584,7 +593,7 @@ namespace CiviBotti
                 Bot.SendText(user.Id, $"{callerUser.Name} has given you rights to do his turn in {game.Name}");
             }
 
-            var games = Games.Where(_ => _.Players.Exists(player => player.User != null && player.User == callerUser))
+            var games = Games.Where(_ => _.Players.Exists(player => player.User != null && player.User.SteamId == callerUser.SteamId))
                 .Select(game => new KeyboardButton(game.Name)).ToList();
 
 
@@ -605,14 +614,66 @@ namespace CiviBotti
                 return;
             }
 
-            /*var driver =
-                new PhantomJSDriver {Url = $"http://multiplayerrobot.com/Game#{selectedGame.GameId}" };
-            driver.Navigate();
+            var url = $"http://multiplayerrobot.com/Game/Details?id={selectedGame.GameId}";
+            var response = HttpInstance.PostAsync(url, null).Result;
+            if (!response.IsSuccessStatusCode) {
+                Bot.SendText(chat, "Problem connecting to gmr service");
+                return;
+            }
 
-            
-            var html = driver.PageSource;
             var doc = new HtmlDocument();
-            doc.LoadHtml(html);*/
+            doc.LoadHtml(response.Content.ReadAsStringAsync().Result);
+
+            var divs = doc.DocumentNode.SelectNodes("//div[@class=\"game-player average\"]");
+
+            var stringBuilder = new StringBuilder();
+            foreach (var innerHtml in divs.Select(div => div.InnerHtml)) {
+                PlayerTurntimeFromInnerHtml(selectedGame.CurrentPlayer, stringBuilder, innerHtml);
+            }
+            
+            Bot.SendText(chat, stringBuilder.ToString());
+        }
+
+        private static void PlayerTurntimeFromInnerHtml(PlayerData player, StringBuilder stringBuilder, string innerHtml) {
+            var idGroup = Regex.Match(innerHtml, @"/Community#\s*([\d+]*)");
+            if (idGroup.Success) {
+                var id = idGroup.Groups[1].Value;
+
+                if (!string.Equals(id, player.SteamId, StringComparison.OrdinalIgnoreCase)) {
+                    return;
+                }
+            }
+
+            var hourGroup = Regex.Match(innerHtml, "(\\d+) hour");
+            var minuteGroup = Regex.Match(innerHtml, "(\\d+) minute");
+            var dayGroup = Regex.Match(innerHtml, "(\\d+) day");
+            
+            stringBuilder.Append($"{player.Nametag} turntimer");
+            if (dayGroup.Success && int.TryParse(dayGroup.Groups[1].Value, out var day) && day > 0) {
+                stringBuilder.Append($" {day}");
+                stringBuilder.Append(day == 1 ? " päivä" : " päivää");
+            }
+            
+            if (hourGroup.Success && int.TryParse(hourGroup.Groups[1].Value, out var hour) && hour > 0) {
+                stringBuilder.Append($" {hour}");
+                stringBuilder.Append(hour == 1 ? " tunti" : " tuntia");
+            }
+
+            if (minuteGroup.Success && int.TryParse(minuteGroup.Groups[1].Value, out var minute) && minute > 0) {
+                stringBuilder.Append($" {minute}");
+                stringBuilder.Append(minute == 1 ? " minuutti" : " minuuttia");
+            }
+                
+            stringBuilder.Append('\n');
+        }
+
+        private static void Turntimers(Chat chat) {
+            Bot.SetChatAction(chat.Id, ChatAction.Typing);
+            var selectedGame = Games.FirstOrDefault(game => game.Chats.Any(chatId => chatId == chat.Id));
+            if (selectedGame == null) {
+                Bot.SendText(chat, "No game added to this chat");
+                return;
+            }
 
             var url = $"http://multiplayerrobot.com/Game/Details?id={selectedGame.GameId}";
             var response = HttpInstance.PostAsync(url, null).Result;
@@ -626,69 +687,18 @@ namespace CiviBotti
 
             var divs = doc.DocumentNode.SelectNodes("//div[@class=\"game-player average\"]");
 
-            var player = selectedGame.CurrentPlayer;
-            foreach (var div in divs) {
-                var idGroup = Regex.Match(div.InnerHtml, "/Community#\\s*([\\d+]*)");
-                if (idGroup.Success) {
-                    var id = idGroup.Groups[1].Value;
-
-                    if (!string.Equals(id, player.SteamId, StringComparison.OrdinalIgnoreCase)) {
-                        continue;
-                    }
+            var stringBuilder = new StringBuilder();
+            foreach (var player in selectedGame.Players) {
+                foreach (var innerHtml in divs.Select(div => div.InnerHtml)) {
+                    PlayerTurntimeFromInnerHtml(player, stringBuilder, innerHtml);
                 }
-
-                var hourGroup = Regex.Match(div.InnerHtml, "(\\d+) hour");
-                var hour = 0;
-                if (hourGroup.Success) {
-                    int.TryParse(hourGroup.Groups[1].Value, out hour);
-                }
-
-                var minuteGroup = Regex.Match(div.InnerHtml, "(\\d+) minute");
-                var minute = 0;
-                if (minuteGroup.Success) {
-                    int.TryParse(minuteGroup.Groups[1].Value, out minute);
-                }
-
-                /*if (remainingDays > 0) {
-                    stringbuilder += $" {remainingDays}";
-                    if (remainingDays == 1) {
-                        stringbuilder += " päivä";
-                    } else {
-                        stringbuilder += " päivää";
-                    }
-                }*/
-                var stringbuilder = "";
-                if (hour > 0) {
-                    stringbuilder += $" {hour}";
-                    if (hour == 1) {
-                        stringbuilder += " tunti";
-                    }
-                    else {
-                        stringbuilder += " tuntia";
-                    }
-                }
-
-                if (minute > 0) {
-                    stringbuilder += $" {minute}";
-                    if (minute == 1) {
-                        stringbuilder += " minuutti";
-                    }
-                    else {
-                        stringbuilder += " minuuttia";
-                    }
-                }
-
-                Bot.SendText(chat, $"{player.Nametag} turntimer {stringbuilder}");
-                return;
             }
+            
+            Bot.SendText(chat, stringBuilder.ToString());
         }
 
         private static void AddGame(Message message, Chat chat) {
             Bot.SetChatAction(chat.Id, ChatAction.Typing);
-            /*if (chat.Type != ChatType.Private) {
-                await Bot.SendText(message.Chat.Id, "Registering can only be created in private chat!");
-                return;
-            }*/
 
             if (chat.Type != ChatType.Private) {
                 var admins = new List<ChatMember>(Bot.GetAdministrators(chat.Id));
@@ -772,11 +782,8 @@ namespace CiviBotti
             Bot.SetChatAction(chat.Id, ChatAction.Typing);
             GameData selectedGame = null;
             foreach (var game in Games) {
-                foreach (var chatid in game.Chats) {
-                    if (chatid == chat.Id) {
-                        selectedGame = game;
-                        break;
-                    }
+                if (game.Chats.Any(chatid => chatid == chat.Id)) {
+                    selectedGame = game;
                 }
 
                 if (selectedGame != null) {
@@ -789,17 +796,11 @@ namespace CiviBotti
                 return;
             }
 
-            var orders = selectedGame.Players.OrderBy(x => x.TurnOrder);
-            var result = "";
-            foreach (var player in orders) {
-                if (result != "") {
-                    result += "\n";
-                }
+            var orders = selectedGame.Players.OrderBy(x => x.TurnOrder).ToList();
+            var result = new StringBuilder();
+            orders.ForEach(player => result.Append($"\n{player.Name}"));
 
-                result += player.Name;
-            }
-
-            Bot.SendText(message.Chat.Id, $"Order is:\n{result}");
+            Bot.SendText(message.Chat.Id, $"Order is:{result}");
         }
 
         private static void Next(Message message, Chat chat) {
@@ -921,16 +922,7 @@ namespace CiviBotti
         private static void Eta(Message message, Chat chat) {
             Bot.SetChatAction(chat.Id, ChatAction.Typing);
 
-            GameData selectedGame = null;
-            foreach (var game in Games) {
-                if (game.Chats.Any(chatid => chatid == chat.Id)) {
-                    selectedGame = game;
-                }
-
-                if (selectedGame != null) {
-                    break;
-                }
-            }
+            var selectedGame = Games.Find(game => game.Chats.Any(chatId => chatId == chat.Id));
 
             if (selectedGame == null) {
                 Bot.SendText(message.Chat.Id, "No game added to this group!");
@@ -943,11 +935,9 @@ namespace CiviBotti
             }
 
             if (selectedGame.CurrentPlayer.User.Id != message.From.Id) {
-                var stringbuilder = $"{selectedGame.CurrentPlayer.Nametag} ";
+                var stringBuilder = new StringBuilder();
+                stringBuilder.Append($"{selectedGame.CurrentPlayer.Nametag} ");
                 TimeSpan diff;
-                int diffMinutes;
-                int diffHours;
-                int diffDays;
 
                 if (selectedGame.CurrentPlayer.NextEta < DateTime.Now) {
                     var turnTimer = GetTurntimer(selectedGame, selectedGame.CurrentPlayer);
@@ -959,52 +949,34 @@ namespace CiviBotti
                     var turnTimerHit = selectedGame.TurnStarted + turnTimer.Value;
                     diff = (turnTimerHit - DateTime.UtcNow).Duration();
 
-                    if (turnTimerHit <= DateTime.UtcNow) {
-                        stringbuilder += $"turntimer kärsinyt:";
-                    }
-                    else {
-                        stringbuilder += $"turntimer alkaa kärsimään:";
-                    }
+                    stringBuilder.Append(turnTimerHit <= DateTime.UtcNow
+                        ? $"turntimer kärsinyt:"
+                        : $"turntimer alkaa kärsimään:");
                 }
                 else {
-                    stringbuilder += "aikaa jäljellä:";
+                    stringBuilder.Append("aikaa jäljellä:");
                     diff = (selectedGame.CurrentPlayer.NextEta - DateTime.Now).Duration();
                 }
 
-                diffMinutes = diff.Minutes % 60;
-                diffHours = diff.Hours % 24;
-                diffDays = (diff.Hours - diffHours) / 24;
+                var diffMinutes = diff.Minutes % 60;
+                var diffHours = diff.Hours % 24;
+                var diffDays = (diff.Hours - diffHours) / 24;
                 if (diffDays > 0) {
-                    stringbuilder += $" {diffDays}";
-                    if (diffDays == 1) {
-                        stringbuilder += " päivä";
-                    }
-                    else {
-                        stringbuilder += " päivää";
-                    }
+                    stringBuilder.Append($" {diffDays}");
+                    stringBuilder.Append(diffDays == 1 ? " päivä" : " päivää");
                 }
 
                 if (diffHours > 0) {
-                    stringbuilder += $" {diffHours}";
-                    if (diffHours == 1) {
-                        stringbuilder += " tunti";
-                    }
-                    else {
-                        stringbuilder += " tuntia";
-                    }
+                    stringBuilder.Append($" {diffHours}");
+                    stringBuilder.Append(diffHours == 1 ? " tunti" : " tuntia");
                 }
 
                 if (diffMinutes > 0) {
-                    stringbuilder += $" {diffMinutes}";
-                    if (diffMinutes == 1) {
-                        stringbuilder += " minuutti";
-                    }
-                    else {
-                        stringbuilder += " minuuttia";
-                    }
+                    stringBuilder.Append($" {diffMinutes}");
+                    stringBuilder.Append(diffMinutes == 1 ? " minuutti" : " minuuttia");
                 }
 
-                Bot.SendText(message.Chat.Id, stringbuilder);
+                Bot.SendText(message.Chat.Id, stringBuilder.ToString());
                 return;
             }
 
@@ -1027,26 +999,24 @@ namespace CiviBotti
                 minute = DateTime.Now.Minute + 10;
             }
             else {
-                var hoursmins = args[1].Split(':');
-                if (!int.TryParse(hoursmins[0], out hour)) {
+                var hoursMins = args[1].Split(':');
+                if (!int.TryParse(hoursMins[0], out hour)) {
                     Bot.SendText(message.Chat.Id,
                         "Please provide time in hours '/eta hours(:minutes(:day)) or /eta nyt|kohta'!");
                     return;
                 }
 
-                if (hoursmins.Length > 1) {
-                    if (!int.TryParse(hoursmins[1], out minute)) {
+                if (hoursMins.Length > 1) {
+                    if (!int.TryParse(hoursMins[1], out minute)) {
                         Bot.SendText(message.Chat.Id,
                             "Please provide time in hours '/eta hours(:minutes(:day)) or /eta nyt|kohta'!");
                         return;
                     }
 
-                    if (hoursmins.Length > 2) {
-                        if (!int.TryParse(hoursmins[2], out day)) {
-                            Bot.SendText(message.Chat.Id,
-                                "Please provide time in hours '/eta hours(:minutes(:day)) or /eta nyt|kohta'!");
-                            return;
-                        }
+                    if (hoursMins.Length > 2 && !int.TryParse(hoursMins[2], out day)) {
+                        Bot.SendText(message.Chat.Id,
+                            "Please provide time in hours '/eta hours(:minutes(:day)) or /eta nyt|kohta'!");
+                        return;
                     }
                 }
             }
@@ -1165,42 +1135,30 @@ namespace CiviBotti
                 return;
             }
 
-            var returnString = "";
-            foreach (var game in Games) {
-                if (!game.Players.Exists(_ => _.User == callerUser)) continue;
-
-                returnString += $"{game.Name}:\n";
+            var returnString = new StringBuilder();
+            foreach (var game in Games.Where(game => game.Players.Exists(userData => userData.User.SteamId == callerUser.SteamId))) {
+                returnString.Append($"{game.Name}:\n");
 
                 if (callerUser.Subs == null || callerUser.Subs.Count == 0 ||
                     !callerUser.Subs.Exists(_ => _.Game.GameId == game.GameId)) {
-                    returnString += " none\n";
+                    returnString.Append(" none\n");
                     continue;
                 }
 
                 returnString = callerUser.Subs.FindAll(_ => _.Game.GameId == game.GameId).Aggregate(returnString,
                     (current, sub) =>
-                        current +
-                        $" -{Bot.GetChat(sub.SubId).Username} for {(sub.Times == 0 ? "unlimited" : sub.Times.ToString())} times\n");
+                        current.Append($" -{Bot.GetChat(sub.SubId).Username} for {(sub.Times == 0 ? "unlimited" : sub.Times.ToString())} times\n"));
             }
 
-            if (returnString == string.Empty) {
-                returnString = "You are not in any games";
+            if (returnString.Length == 0) {
+                returnString.Append("You are not in any games");
             }
 
-            Bot.SendText(message.Chat.Id, returnString);
+            Bot.SendText(message.Chat.Id, returnString.ToString());
         }
 
 
         private static TimeSpan? GetTurntimer(GameData selectedGame, PlayerData player) {
-            /*var driver =
-                new PhantomJSDriver {Url = $"http://multiplayerrobot.com/Game#{selectedGame.GameId}" };
-            driver.Navigate();
-
-            
-            var html = driver.PageSource;
-            var doc = new HtmlDocument();
-            doc.LoadHtml(html);*/
-
             var url = $"http://multiplayerrobot.com/Game/Details?id={selectedGame.GameId}";
             var response = HttpInstance.PostAsync(url, null).Result;
             if (!response.IsSuccessStatusCode) {
@@ -1212,8 +1170,8 @@ namespace CiviBotti
 
             var divs = doc.DocumentNode.SelectNodes("//div[@class=\"game-player average\"]");
 
-            foreach (var div in divs) {
-                var idGroup = Regex.Match(div.InnerHtml, "/Community#\\s*([\\d+]*)");
+            foreach (var innerHtml in divs.Select(div => div.InnerHtml)) {
+                var idGroup = Regex.Match(innerHtml, "/Community#\\s*([\\d+]*)");
                 if (idGroup.Success) {
                     var id = idGroup.Groups[1].Value;
 
@@ -1222,13 +1180,13 @@ namespace CiviBotti
                     }
                 }
 
-                var hourGroup = Regex.Match(div.InnerHtml, "(\\d+) hour");
+                var hourGroup = Regex.Match(innerHtml, "(\\d+) hour");
                 var hour = 0;
                 if (hourGroup.Success) {
                     int.TryParse(hourGroup.Groups[1].Value, out hour);
                 }
 
-                var minuteGroup = Regex.Match(div.InnerHtml, "(\\d+) minute");
+                var minuteGroup = Regex.Match(innerHtml, "(\\d+) minute");
                 var minute = 0;
                 if (minuteGroup.Success) {
                     int.TryParse(minuteGroup.Groups[1].Value, out minute);
@@ -1288,7 +1246,7 @@ namespace CiviBotti
                 }
                 var turnTimer = GetTurntimer(game, game.CurrentPlayer);
                 if (!turnTimer.HasValue) return;
-                if (!(game.TurnStarted + turnTimer.Value < DateTime.UtcNow)) return;
+                if (game.TurnStarted + turnTimer.Value >= DateTime.UtcNow) return;
                 game.TurntimerNotified = true;
                 game.UpdateCurrent();
                 foreach (var chat in game.Chats) {

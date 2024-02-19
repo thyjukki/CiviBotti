@@ -6,23 +6,28 @@ namespace CiviBotti {
     {
         private static readonly List<UserData> Users = new List<UserData>();
 
-        public long Id;
-        public string SteamId = "";
-        public string AuthKey;
+        public long Id { get; private set; }
+        public string SteamId { get; private set; } = "";
+        public string AuthKey { get; private set; } = "";
 
         private string _name = string.Empty;
         public string Name {
             get {
-                if (_name == string.Empty) {
-                    _name = Program.Bot.GetChat(Id)?.Username;
+                if (_name != string.Empty) {
+                    return _name;
+                }
+
+                var username = Program.Bot.GetChat(Id)?.Username;
+                if (username != null) {
+                    _name = username;
                 }
                 return _name;
             }
         }
 
-        public List<SubData> Subs = new List<SubData>();
+        public List<SubData> Subs { get; private set; } = new ();
 
-        public UserData()
+        private UserData()
         {
             Users.Add(this);
         }
@@ -49,8 +54,8 @@ namespace CiviBotti {
             return result;
         }
 
-        public static UserData Get(long id) {
-            var check = Users.Find(_ => _.Id == id);
+        public static UserData? Get(long id) {
+            var check = Users.Find(cachedUser => cachedUser.Id == id);
             if (check != null) return check;
 
             var sql = $"SELECT * FROM users WHERE id = {id}";
@@ -58,7 +63,7 @@ namespace CiviBotti {
             var reader = Program.Database.ExecuteReader(sql);
 
 
-            UserData user = null;
+            UserData user;
             if (reader.Read()) {
                 user = new UserData {
                     Id = reader.GetInt64(0),
@@ -66,11 +71,12 @@ namespace CiviBotti {
                     AuthKey = reader.GetString(2)
                 };
             }
+            else {
+                return null;
+            }
 
             reader.Close();
-            if (user != null) {
-                user.Subs = SubData.Get(user.Id);
-            }
+            user.Subs = SubData.Get(user.Id);
             return user;
         }
         
@@ -99,14 +105,6 @@ namespace CiviBotti {
                 user.Subs = SubData.Get(user.Id);
             }
             return user;
-        }
-
-        public static bool operator ==(UserData c1, UserData c2) {
-            return c1?.SteamId == c2?.SteamId;
-        }
-
-        public static bool operator !=(UserData c1, UserData c2) {
-            return !(c1 == c2);
         }
         
         public override string ToString() => $"User: {Name}";
