@@ -2,21 +2,23 @@
 using System.Collections.Generic;
 
 namespace CiviBotti {
+    using System.Globalization;
+
     public class GameData {
-        public long GameId;
-        public UserData Owner;
+        public long GameId { get; set;}
+        public UserData Owner { get; set;}
         private long _ownerRaw;
-        public List<long> Chats;
-        public PlayerData CurrentPlayer;
-        public DateTime TurnStarted;
-        public bool TurntimerNotified;
-        public bool DailyNotified;
-        public bool EnableDailyNotified;
+        public List<long> Chats { get; set;}
+        public PlayerData CurrentPlayer { get; set;}
+        public DateTime TurnStarted { get; set;}
+        public bool TurntimerNotified { get; set;}
+        public bool DailyNotified { get; set;}
+        public bool EnableDailyNotified { get; set;}
         private string _currentPlayerRaw;
 
-        public List<PlayerData> Players;
-        public string Name;
-        public string TurnId;
+        public List<PlayerData> Players { get; set;}
+        public string Name { get; set;}
+        public string TurnId { get; set;}
 
         /// <exception cref="DatabaseUnknownType">Condition.</exception>
         /// <exception cref="DatabaseQueryFail">Condition.</exception>
@@ -32,7 +34,7 @@ namespace CiviBotti {
         /// <exception cref="DatabaseUnknownType">Condition.</exception>
         /// <exception cref="DatabaseQueryFail">Condition.</exception>
         public bool UpdateCurrent() {
-            var sql = $"UPDATE games SET currentp = {CurrentPlayer.SteamId}, notified = {(TurntimerNotified ? 1 : 0)}, enableDailyNotified = {(EnableDailyNotified ? 1 : 0)}, dailyNotified = {(DailyNotified ? 1 : 0)}, turnid = '{TurnId}' WHERE gameid = {GameId}";
+            var sql = $"UPDATE games SET currentp = {CurrentPlayer.SteamId}, notified = {(TurntimerNotified ? 1 : 0)}, turnid = '{TurnId}', enableDailyNotified = {{(EnableDailyNotified ? 1 : 0)}}, dailyNotified = {{(DailyNotified ? 1 : 0)}} WHERE gameid = {GameId}";
 
             Console.WriteLine(sql);
             var rows = Program.Database.ExecuteNonQuery(sql);
@@ -135,7 +137,8 @@ namespace CiviBotti {
                     SteamId = reader2.GetString(1),
                     TurnOrder = reader2.GetInt32(2)
                 };
-                DateTime.TryParse(reader2.GetString(3), out player.NextEta);
+                var dateString = reader2.GetString(3);
+                DateTime.TryParse(dateString, DateTimeFormatInfo.CurrentInfo, DateTimeStyles.AssumeLocal, out player.NextEta);
 
                 if (_currentPlayerRaw == player.SteamId) {
                     CurrentPlayer = player;
