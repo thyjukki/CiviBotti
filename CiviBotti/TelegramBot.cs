@@ -158,9 +158,7 @@ namespace CiviBotti
             if (!message.Text.StartsWith("/")) return;
 
             var commandSplit = message.Text.Split(' ')[0].Split('@');
-            if (commandSplit.Length == 2) {
-                if (!string.Equals(commandSplit[1], TechnicalName, StringComparison.OrdinalIgnoreCase)) return;
-            }
+            if (commandSplit.Length == 2 && !string.Equals(commandSplit[1], TechnicalName, StringComparison.OrdinalIgnoreCase)) return;
             var command = commandSplit[0].Split('/')[1];
             Program.ParseCommand(command, message);
         }

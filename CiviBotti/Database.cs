@@ -6,59 +6,41 @@ using System.Data.SqlClient;
 using MySql.Data.MySqlClient;
 using System.Data.SQLite;
 using Microsoft.Extensions.Configuration;
-using ConfigurationManager = System.Configuration.ConfigurationManager;
 
 namespace CiviBotti {
-    public class Database {
-        readonly DatabaseType _type;
-
-        private readonly MySqlConnection _mySqlConnection;
-        private readonly SQLiteConnection _sqliteConnection;
-
-        /// <exception cref="DatabaseUnknownType" accessor="get">Unknown database connection</exception>
-        public ConnectionState State {
-            get {
-                switch (_type) {
-                    case DatabaseType.SqLite:
-                        return _sqliteConnection.State;
-                    case DatabaseType.MySql:
-                        return _mySqlConnection.State;
-                    default:
-                        throw new DatabaseUnknownType("ConnectionState");
-                }
-            }
-        }
+    public class Database
+    {
+        private readonly DbConnection _connection;
 
         public enum DatabaseType {
             SqLite,
             MySql
         }
 
-        /// <exception cref="DatabaseUnknownType">Unknown database connection</exception>
-        public Database(DatabaseType t, IConfigurationRoot configs) {
-            _type = t;
+        public Database(DatabaseType t, IConfiguration configs) {
 
-            switch (_type) {
+            switch (t) {
                 case DatabaseType.SqLite:
                     if (!System.IO.File.Exists("database.sqlite")) {
                         SQLiteConnection.CreateFile("database.sqlite");
-                        _sqliteConnection = new SQLiteConnection("Data Source=database.sqlite;Version=3;");
-                        _sqliteConnection.Open();
-                        var command = new SQLiteCommand("CREATE TABLE users (id bigint NOT NULL, steamid VARCHAR(20), authkey VARCHAR(20), PRIMARY KEY(id))", _sqliteConnection);
+                        var sqLiteConnection = new SQLiteConnection("Data Source=database.sqlite;Version=3;");
+                        _connection = sqLiteConnection;
+                        sqLiteConnection.Open();
+                        var command = new SQLiteCommand("CREATE TABLE users (id bigint NOT NULL, steamid VARCHAR(20), authkey VARCHAR(20), PRIMARY KEY(id))", sqLiteConnection);
                         command.ExecuteNonQuery();
-                        command = new SQLiteCommand("CREATE TABLE games (gameid bigint NOT NULL, ownerid bigint NOT NULL, name VARCHAR(40), currentp VARCHAR(20), notified BIT NOT NULL DEFAULT '1', turnid VARCHAR(20), PRIMARY KEY(gameid), FOREIGN KEY(ownerid) REFERENCES users(id))", _sqliteConnection);
+                        command = new SQLiteCommand("CREATE TABLE games (gameid bigint NOT NULL, ownerid bigint NOT NULL, name VARCHAR(40), currentp VARCHAR(20), notified BIT NOT NULL DEFAULT '1', turnid VARCHAR(20), PRIMARY KEY(gameid), FOREIGN KEY(ownerid) REFERENCES users(id))", sqLiteConnection);
                         command.ExecuteNonQuery();
-                        command = new SQLiteCommand("CREATE TABLE players (gameid bigint NOT NULL, steamid VARCHAR(20), turnorder INT, nexteta VARCHAR(20), PRIMARY KEY(gameid, steamid))", _sqliteConnection);
+                        command = new SQLiteCommand("CREATE TABLE players (gameid bigint NOT NULL, steamid VARCHAR(20), turnorder INT, nexteta VARCHAR(20), PRIMARY KEY(gameid, steamid))", sqLiteConnection);
                         command.ExecuteNonQuery();
-                        command = new SQLiteCommand("CREATE TABLE gamechats (gameid bigint NOT NULL, chatid bigint NOT NULL, PRIMARY KEY(gameid, chatid))", _sqliteConnection);
+                        command = new SQLiteCommand("CREATE TABLE gamechats (gameid bigint NOT NULL, chatid bigint NOT NULL, PRIMARY KEY(gameid, chatid))", sqLiteConnection);
                         command.ExecuteNonQuery();
-                        command = new SQLiteCommand("CREATE TABLE quotes (gameid bigint NOT NULL, chatid bigint NOT NULL, data TEXT, PRIMARY KEY(gameid, chatid))", _sqliteConnection);
+                        command = new SQLiteCommand("CREATE TABLE quotes (gameid bigint NOT NULL, chatid bigint NOT NULL, data TEXT, PRIMARY KEY(gameid, chatid))", sqLiteConnection);
                         command.ExecuteNonQuery();
-                        command = new SQLiteCommand("CREATE TABLE subs (gameid bigint NOT NULL, id bigint NOT NULL, subid bigint NOT NULL, times int NOT NULL, PRIMARY KEY(gameid, id, subid))", _sqliteConnection);
+                        command = new SQLiteCommand("CREATE TABLE subs (gameid bigint NOT NULL, id bigint NOT NULL, subid bigint NOT NULL, times int NOT NULL, PRIMARY KEY(gameid, id, subid))", sqLiteConnection);
                         command.ExecuteNonQuery();
-                        _sqliteConnection.Close();
+                        sqLiteConnection.Close();
                     } else {
-                        _sqliteConnection = new SQLiteConnection("Data Source=database.sqlite;Version=3;");
+                        _connection = new SQLiteConnection("Data Source=database.sqlite;Version=3;");
                     }
                     break;
                 case DatabaseType.MySql:
@@ -70,7 +52,7 @@ namespace CiviBotti {
                         builder.UserID = configs["DB_USER"];
                         builder.Password = configs["DB_PW"];
                         builder.InitialCatalog = configs["DB_DB"];
-                        _mySqlConnection = new MySqlConnection(builder.ConnectionString);
+                        _connection = new MySqlConnection(builder.ConnectionString);
                     }
                     catch (ConfigurationErrorsException ex)
                     {
@@ -82,81 +64,32 @@ namespace CiviBotti {
 
                     break;
                 default:
-                    throw new DatabaseUnknownType("Database");
+                    throw new ArgumentOutOfRangeException(nameof(t), t, "Unsupported database type");
             }
         }
 
-        /// <exception cref="DatabaseUnknownType">Condition.</exception>
-        /// <exception cref="DatabaseQueryFail">Condition.</exception>
         public int ExecuteNonQuery(string sql) {
-            Open();
-
             try {
-                switch (_type) {
-                    case DatabaseType.SqLite:
-                        var sqliteCommand = new SQLiteCommand(sql, _sqliteConnection);
-                        return sqliteCommand.ExecuteNonQuery();
-                    case DatabaseType.MySql:
-                        var sqlCommand = new MySqlCommand(sql, _mySqlConnection);
-                        return sqlCommand.ExecuteNonQuery();
-                    default:
-                        throw new DatabaseUnknownType("ExecuteNonQuery " + sql);
-                }
-            } catch (SQLiteException ex) {
-                Console.WriteLine("Database SQLite ExecuteNonQuery exception " + ex.ErrorCode);
-                throw new DatabaseQueryFail($"Database SQLite ExecuteNonQuery exception with {sql}\n{ex.ErrorCode}", ex);
-            } catch (SqlException ex) {
-                Console.WriteLine($"Database Sql ExecuteNonQuery exception with {sql}\n{ex.ErrorCode}");
-                throw new DatabaseQueryFail("See the inner exception for details.", ex);
+                _connection.Open();
+                var command = _connection.CreateCommand();
+                command.CommandText = sql;
+                return command.ExecuteNonQuery();
+            } catch (DbException ex) {
+                Console.WriteLine($"Database ExecuteNonQuery exception with {sql}\n{ex.ErrorCode}");
+                throw;
             }
         }
 
-        /// <exception cref="DatabaseQueryFail">Condition.</exception>
         public DbDataReader ExecuteReader(string sql) {
-            Open();
 
             try {
-                switch (_type) {
-                    case DatabaseType.SqLite:
-                        var sqliteCommand = new SQLiteCommand(sql, _sqliteConnection);
-                        return sqliteCommand.ExecuteReader();
-                    case DatabaseType.MySql:
-                        var mySqlCommand = new MySqlCommand(sql, _mySqlConnection);
-                        return mySqlCommand.ExecuteReader();
-                    default:
-                        throw new DatabaseUnknownType("ExecuteReader " + sql);
-                }
-            } catch (SQLiteException ex) {
-                Console.WriteLine("Database SQLite ExecuteReader exception " + ex.ErrorCode);
-                throw new DatabaseQueryFail($"Database SQLite ExecuteReader exception with {sql}\n{ex.ErrorCode}", ex);
-            } catch (SqlException ex) {
-                Console.WriteLine("Database SQL ExecuteReader exception " + ex.ErrorCode);
-                throw new DatabaseQueryFail($"Database Sql ExecuteReader exception with {sql}\n{ex.ErrorCode}", ex);
-            }
-        }
-
-        /// <exception cref="DatabaseOpenFail">Condition.</exception>
-        /// <exception cref="DatabaseUnknownType">Open</exception>
-        public void Open()
-        {
-            if (State == ConnectionState.Open) return;
-            try {
-                switch (_type) {
-                    case DatabaseType.SqLite:
-                        _sqliteConnection.Open();
-                        break;
-                    case DatabaseType.MySql:
-                        _mySqlConnection.Open();
-                        break;
-                    default:
-                        throw new DatabaseUnknownType("Open");
-                }
-            } catch (SQLiteException ex) {
-                Console.WriteLine("Database SQLite Open exception " + ex.ErrorCode);
-                throw new DatabaseOpenFail("See the inner exception for details.", ex);
-            } catch (SqlException ex) {
-                Console.WriteLine("Database SQL Open exception " + ex.ErrorCode);
-                throw new DatabaseOpenFail("See the inner exception for details.", ex);
+                _connection.Open();
+                var command = _connection.CreateCommand();
+                command.CommandText = sql;
+                return command.ExecuteReader();
+            } catch (DbException ex) {
+                Console.WriteLine($"Database ExecuteNonQuery exception with {sql}\n{ex.ErrorCode}");
+                throw;
             }
         }
     }

@@ -28,7 +28,7 @@ namespace CiviBotti
     {
         public static List<GameData> Games { get; private set; } = new();
 
-        public static Database? Database { get; private set; }
+        public static Database Database { get; private set; }
 
         private static readonly HttpClient HttpInstance = new ();
 
@@ -62,26 +62,8 @@ namespace CiviBotti
             var players = (from game in Games from player in game.Players select player.SteamId).ToList();
             var playerSteamNames = GetSteamUserNames(players);
 
-            foreach (var game in Games) {
-                Console.WriteLine($"{game} {game.Owner}");
-                Console.WriteLine(" chats:");
-                foreach (var chat in game.Chats) {
-                    Console.WriteLine("  -" + chat);
-                }
-
-                Console.WriteLine(" players:");
-                foreach (var player in game.Players) {
-                    playerSteamNames.TryGetValue(player.SteamId, out player.SteamName);
-
-
-                    if (player.User != null) {
-                        player.TgName = Bot.GetChat(player.User.Id)?.Username;
-                    }
-
-                    Console.WriteLine($"  -{player} ({player.TurnOrder}) {player.User}");
-                }
-
-                Console.WriteLine("\n");
+            if (Configs.GetValue<bool>("DEBUG")) {
+                DebugPrintGames(playerSteamNames);
             }
 
             Bot.StartReceiving();
@@ -99,6 +81,34 @@ namespace CiviBotti
             }
 
             Bot.StopReceiving();
+        }
+
+        private static void DebugPrintGames(IReadOnlyDictionary<string, string> playerSteamNames) {
+            foreach (var game in Games) {
+                Console.WriteLine($"{game} {game.Owner}");
+                Console.WriteLine(" chats:");
+                foreach (var chat in game.Chats) {
+                    Console.WriteLine("  -" + chat);
+                }
+
+                Console.WriteLine(" players:");
+                foreach (var player in game.Players) {
+                    if (!playerSteamNames.TryGetValue(player.SteamId, out var steamName)) {
+                        Console.WriteLine($"  -{player} ({player.TurnOrder}) {player.User} Error gettig steamname");
+                        continue;
+                    }
+                    player.SteamName = steamName;
+
+
+                    if (player.User != null) {
+                        player.TgName = Bot.GetChat(player.User.Id)?.Username;
+                    }
+
+                    Console.WriteLine($"  -{player} ({player.TurnOrder}) {player.User}");
+                }
+
+                Console.WriteLine("\n");
+            }
         }
 
 
@@ -174,17 +184,13 @@ namespace CiviBotti
 
             var currentPlayerId = (string)current["UserId"];
             foreach (var player in data["Players"]) {
-                var playerData = new PlayerData {
-                    GameId = gameId,
-                    TurnOrder = player["TurnOrder"].Value<int>(),
-                    SteamId = player["UserId"].Value<string>()
-                };
+                var playerData = new PlayerData(gameId, player["UserId"].Value<string>(), player["TurnOrder"].Value<int>(), DateTime.MinValue);
 
                 playerData.User = UserData.GetBySteamId(playerData.SteamId);
                 playerData.SteamName = GetSteamUserName(playerData.SteamId);
 
                 if (playerData.User != null) {
-                    playerData.TgName = Bot.GetChat(playerData.User.Id)?.Username;
+                    playerData.TgName = Bot.GetChat(playerData.User.Id).Username;
                 }
 
                 if (currentPlayerId == playerData.SteamId) {
@@ -581,13 +587,8 @@ namespace CiviBotti
 
 
             void SetSub(GameData game, UserData user, int times) {
-                var sub = new SubData {
-                    Id = callerUser.Id,
-                    SubId = user.Id,
-                    Times = times,
-                    Game = game
-                };
-                sub.InsertDatabase(false);
+                var sub = new SubData(callerUser.Id, user.Id, times, game);
+                sub.InsertDatabase();
                 user.Subs.Add(sub);
                 Bot.SendText(message.Chat.Id, $"Added {user.Name} as sub in {game.Name}", new ReplyKeyboardRemove());
                 Bot.SendText(user.Id, $"{callerUser.Name} has given you rights to do his turn in {game.Name}");
@@ -635,7 +636,7 @@ namespace CiviBotti
         }
 
         private static void PlayerTurntimeFromInnerHtml(PlayerData player, StringBuilder stringBuilder, string innerHtml) {
-            var idGroup = Regex.Match(innerHtml, @"/Community#\s*([\d+]*)");
+            var idGroup = Regex.Match(innerHtml, @"/Community#\s*([\d+]*)", RegexOptions.None, TimeSpan.FromMilliseconds(100));
             if (idGroup.Success) {
                 var id = idGroup.Groups[1].Value;
 
@@ -644,11 +645,11 @@ namespace CiviBotti
                 }
             }
 
-            var hourGroup = Regex.Match(innerHtml, "(\\d+) hour");
-            var minuteGroup = Regex.Match(innerHtml, "(\\d+) minute");
-            var dayGroup = Regex.Match(innerHtml, "(\\d+) day");
+            var hourGroup = Regex.Match(innerHtml, "(\\d+) hour", RegexOptions.None, TimeSpan.FromMilliseconds(100));
+            var minuteGroup = Regex.Match(innerHtml, "(\\d+) minute", RegexOptions.None, TimeSpan.FromMilliseconds(100));
+            var dayGroup = Regex.Match(innerHtml, "(\\d+) day", RegexOptions.None, TimeSpan.FromMilliseconds(100));
             
-            stringBuilder.Append($"{player.Nametag} turntimer");
+            stringBuilder.Append($"{player.NameTag} turntimer");
             if (dayGroup.Success && int.TryParse(dayGroup.Groups[1].Value, out var day) && day > 0) {
                 stringBuilder.Append($" {day}");
                 stringBuilder.Append(day == 1 ? " päivä" : " päivää");
@@ -831,7 +832,7 @@ namespace CiviBotti
 
             var player = orders.ToList()[next];
 
-            Bot.SendText(message.Chat.Id, $"Next player is: {player.Nametag}");
+            Bot.SendText(message.Chat.Id, $"Next player is: {player.NameTag}");
         }
 
         private static async Task Tee(Message message, Chat chat) {
@@ -1012,13 +1013,13 @@ namespace CiviBotti
 
         private static void GetOtherPlayerEta(Message message, GameData selectedGame, PlayerData player) {
             var stringBuilder = new StringBuilder();
-            stringBuilder.Append($"{player.Nametag} ");
+            stringBuilder.Append($"{player.NameTag} ");
             TimeSpan diff;
 
             if (player.NextEta < DateTime.Now) {
                 var turnTimer = GetTurntimer(selectedGame, player);
                 if (!turnTimer.HasValue) {
-                    Bot.SendText(message.Chat.Id, $"Uusi turntimer tulossa! {player.Nametag}");
+                    Bot.SendText(message.Chat.Id, $"Uusi turntimer tulossa! {player.NameTag}");
                     return;
                 }
 
@@ -1186,7 +1187,7 @@ namespace CiviBotti
             var divs = doc.DocumentNode.SelectNodes("//div[@class=\"game-player average\"]");
 
             foreach (var innerHtml in divs.Select(div => div.InnerHtml)) {
-                var idGroup = Regex.Match(innerHtml, "/Community#\\s*([\\d+]*)");
+                var idGroup = Regex.Match(innerHtml, "/Community#\\s*([\\d+]*)", RegexOptions.None, TimeSpan.FromMilliseconds(100));
                 if (idGroup.Success) {
                     var id = idGroup.Groups[1].Value;
 
@@ -1195,13 +1196,13 @@ namespace CiviBotti
                     }
                 }
 
-                var hourGroup = Regex.Match(innerHtml, "(\\d+) hour");
+                var hourGroup = Regex.Match(innerHtml, "(\\d+) hour", RegexOptions.None, TimeSpan.FromMilliseconds(100));
                 var hour = 0;
                 if (hourGroup.Success) {
                     int.TryParse(hourGroup.Groups[1].Value, out hour);
                 }
 
-                var minuteGroup = Regex.Match(innerHtml, "(\\d+) minute");
+                var minuteGroup = Regex.Match(innerHtml, "(\\d+) minute", RegexOptions.None, TimeSpan.FromMilliseconds(100));
                 var minute = 0;
                 if (minuteGroup.Success) {
                     int.TryParse(minuteGroup.Groups[1].Value, out minute);
@@ -1265,7 +1266,7 @@ namespace CiviBotti
                 game.TurntimerNotified = true;
                 game.UpdateCurrent();
                 foreach (var chat in game.Chats) {
-                    Bot.SendText(chat, $"Turn timer kärsii {game.CurrentPlayer.Nametag}");
+                    Bot.SendText(chat, $"Turn timer kärsii {game.CurrentPlayer.NameTag}");
                 }
             }
             else {
@@ -1276,7 +1277,7 @@ namespace CiviBotti
                 game.CurrentPlayer.NextEta = DateTime.MinValue;
                 game.CurrentPlayer.UpdateDatabase();
                 foreach (var chat in game.Chats) {
-                    Bot.SendText(chat, $"Aikamääreistä pidetään kiinni {game.CurrentPlayer.Nametag}");
+                    Bot.SendText(chat, $"Aikamääreistä pidetään kiinni {game.CurrentPlayer.NameTag}");
                 }
             }
         }
@@ -1303,7 +1304,7 @@ namespace CiviBotti
                 player.User = UserData.GetBySteamId(player.SteamId);
 
                 if (player.User != null) {
-                    player.TgName = Bot.GetChat(player.User.Id)?.Username;
+                    player.TgName = Bot.GetChat(player.User.Id).Username;
                 }
 
                 break;
@@ -1313,7 +1314,7 @@ namespace CiviBotti
                 Console.WriteLine(chat);
                 Bot.SendText(chat,
                     game.CurrentPlayer != null
-                        ? $"It's now your turn {game.CurrentPlayer.Nametag}!"
+                        ? $"It's now your turn {game.CurrentPlayer.NameTag}!"
                         : "It's now your turn waitwhatthishsouldntbehappening?!");
             }
         }
@@ -1328,30 +1329,30 @@ namespace CiviBotti
             switch (DateTime.UtcNow.Hour) {
                 case 7: {
                     message = rnd.Next(0, 8) switch {
-                        0 => $"Uusi päivä, uusi vuoro {game.CurrentPlayer.Nametag}",
-                        1 => $"Linnut laulaa ja vuorot tehää {game.CurrentPlayer.Nametag}",
-                        2 => $"Kahvit ja vuorot tulille {game.CurrentPlayer.Nametag}",
-                        3 => $"Ylös ulos ja civille {game.CurrentPlayer.Nametag}",
-                        4 => $"Welcome back commander {game.CurrentPlayer.Nametag}",
-                        5 => $"Help us {game.CurrentPlayer.Nametag}, your our only hope",
-                        6 => $"Nukuitko hyvin hyvin {game.CurrentPlayer.Nametag}?",
-                        7 => $"Aikanen vuoro kaupungin nappaa {game.CurrentPlayer.Nametag}",
-                        _ => $"Civivuorossa herätyys {game.CurrentPlayer.Nametag}!"
+                        0 => $"Uusi päivä, uusi vuoro {game.CurrentPlayer.NameTag}",
+                        1 => $"Linnut laulaa ja vuorot tehää {game.CurrentPlayer.NameTag}",
+                        2 => $"Kahvit ja vuorot tulille {game.CurrentPlayer.NameTag}",
+                        3 => $"Ylös ulos ja civille {game.CurrentPlayer.NameTag}",
+                        4 => $"Welcome back commander {game.CurrentPlayer.NameTag}",
+                        5 => $"Help us {game.CurrentPlayer.NameTag}, your our only hope",
+                        6 => $"Nukuitko hyvin hyvin {game.CurrentPlayer.NameTag}?",
+                        7 => $"Aikanen vuoro kaupungin nappaa {game.CurrentPlayer.NameTag}",
+                        _ => $"Civivuorossa herätyys {game.CurrentPlayer.NameTag}!"
                     };
 
                     break;
                 }
                 case 17: {
                     message = rnd.Next(0, 8) switch {
-                        0 => $"Muista pestä hampaat ja tehdä vuoro {game.CurrentPlayer.Nametag}",
-                        1 => $"Älä unohda vuoroasi {game.CurrentPlayer.Nametag}",
-                        2 => $"Just one more turn {game.CurrentPlayer.Nametag}",
-                        3 => $"All your turn are belong to {game.CurrentPlayer.Nametag}",
-                        4 => $"It looks like you were trying to sleep {game.CurrentPlayer.Nametag}",
-                        5 => $"Tee vuoro ja nukkumaan {game.CurrentPlayer.Nametag}. Muuta neuvoa ei tule",
-                        6 => $"Aina voi laittaa lomatilan päälle {game.CurrentPlayer.Nametag}",
-                        7 => $"Älä anna yöunien pilataa civiä {game.CurrentPlayer.Nametag}",
-                        _ => $"Etkai vai ollut menossa nukkumaan {game.CurrentPlayer.Nametag}?"
+                        0 => $"Muista pestä hampaat ja tehdä vuoro {game.CurrentPlayer.NameTag}",
+                        1 => $"Älä unohda vuoroasi {game.CurrentPlayer.NameTag}",
+                        2 => $"Just one more turn {game.CurrentPlayer.NameTag}",
+                        3 => $"All your turn are belong to {game.CurrentPlayer.NameTag}",
+                        4 => $"It looks like you were trying to sleep {game.CurrentPlayer.NameTag}",
+                        5 => $"Tee vuoro ja nukkumaan {game.CurrentPlayer.NameTag}. Muuta neuvoa ei tule",
+                        6 => $"Aina voi laittaa lomatilan päälle {game.CurrentPlayer.NameTag}",
+                        7 => $"Älä anna yöunien pilataa civiä {game.CurrentPlayer.NameTag}",
+                        _ => $"Etkai vai ollut menossa nukkumaan {game.CurrentPlayer.NameTag}?"
                     };
 
                     break;

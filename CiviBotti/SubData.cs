@@ -5,25 +5,23 @@ namespace CiviBotti
 {
     public class SubData
     {
-        public long Id;
-        public long SubId;
-        public GameData Game;
-        public int Times;
+        public readonly long Id;
+        public readonly long SubId;
+        public readonly GameData Game;
+        public readonly int Times;
 
-        public bool InsertDatabase(bool open)
+        public SubData(long id, long subId, int times, GameData game) {
+            Id = id;
+            SubId = subId;
+            Times = times;
+            Game = game;
+        }
+
+        public void InsertDatabase()
         {
-            var result = false;
-
             var sql = $"INSERT INTO subs (gameid, id, subid, times) values ({Game.GameId}, '{Id}', '{SubId}', '{Times}')";
             Console.WriteLine(sql);
-            var rows = Program.Database.ExecuteNonQuery(sql);
-
-            if (rows == 1)
-            {
-                result = true;
-            }
-
-            return result;
+            Program.Database.ExecuteNonQuery(sql);
         }
 
         public static List<SubData> Get(long id) {
@@ -43,15 +41,8 @@ namespace CiviBotti
                     continue;
                 }
 
-                var sub = new SubData {
-                    Id = reader.GetInt64(1),
-                    SubId = reader.GetInt64(2),
-                    Times = reader.GetInt32(3),
-                    Game = game
-                };
-
-
-
+                var sub = new SubData(reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3), game);
+                
                 collection.Add(sub);
             }
             reader.Close();
