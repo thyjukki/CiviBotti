@@ -10,21 +10,6 @@ namespace CiviBotti {
         public string SteamId { get; private set; } = "";
         public string AuthKey { get; private set; } = "";
 
-        private string _name = string.Empty;
-        public string Name {
-            get {
-                if (_name != string.Empty) {
-                    return _name;
-                }
-
-                var username = Program.Bot.GetChat(Id)?.Username;
-                if (username != null) {
-                    _name = username;
-                }
-                return _name;
-            }
-        }
-
         public List<SubData> Subs { get; private set; } = new ();
 
         private UserData()
@@ -37,7 +22,7 @@ namespace CiviBotti {
 
             var sql = $"INSERT INTO users (id, steamid, authkey) values ({Id}, '{SteamId}', '{AuthKey}')";
             Console.WriteLine(sql);
-            var rows = Program.Database.ExecuteNonQuery(sql);
+            var rows = SubProgram.Database.ExecuteNonQuery(sql);
 
             if (rows == 1) {
                 result = true;
@@ -48,7 +33,7 @@ namespace CiviBotti {
 
         public static bool CheckDatabase(long id) {
             var sql = $"SELECT * FROM users WHERE id = {id}";
-            var reader = Program.Database.ExecuteReader(sql);
+            var reader = SubProgram.Database.ExecuteReader(sql);
             var result = reader.HasRows;
             reader.Close();
             return result;
@@ -60,7 +45,7 @@ namespace CiviBotti {
 
             var sql = $"SELECT * FROM users WHERE id = {id}";
             Console.WriteLine(sql);
-            var reader = Program.Database.ExecuteReader(sql);
+            var reader = SubProgram.Database.ExecuteReader(sql);
 
 
             UserData user;
@@ -82,7 +67,7 @@ namespace CiviBotti {
         
         public static UserData GetBySteamId(string steamid) {
             var sql = $"SELECT * FROM users WHERE steamid = '{steamid}'";
-            var reader = Program.Database.ExecuteReader(sql);
+            var reader = SubProgram.Database.ExecuteReader(sql);
 
 
             UserData user = null;
@@ -106,8 +91,6 @@ namespace CiviBotti {
             }
             return user;
         }
-        
-        public override string ToString() => $"User: {Name}";
 
         public static UserData NewUser(int fromId, string steamId, string authKey) {
             return new UserData { Id = fromId, SteamId = steamId, AuthKey = authKey };

@@ -12,14 +12,15 @@ using File = Telegram.Bot.Types.File;
 
 namespace CiviBotti
 {
+    using System.Threading.Tasks;
+
     public class TelegramBot
     {
-        private readonly List<ChatCallback> _replyCallbacks = new List<ChatCallback>();
+        private readonly List<ChatCallback> _replyCallbacks = new ();
 
         #region variables
         private readonly TelegramBotClient _bot;
 
-        public string Name { get; }
         public string TechnicalName { get; }
         #endregion
 
@@ -30,9 +31,7 @@ namespace CiviBotti
             _bot.OnMessage += BotOnMessageReceived;
             _bot.OnReceiveError += BotOnReceiveError;
 
-            Name = _bot.GetMeAsync().Result.FirstName;
             TechnicalName = _bot.GetMeAsync().Result.Username;
-            Console.Title = Name;
         }
 
 
@@ -81,13 +80,8 @@ namespace CiviBotti
             return _bot.GetChatAdministratorsAsync(chatId).Result;
         }
 
-        public Chat GetChat(long userId) {
-            try {
-                return _bot.GetChatAsync(userId).Result;
-            }
-            catch {
-                return null;
-            }
+        public async Task<Chat> GetChat(long userId) {
+            return await _bot.GetChatAsync(userId);
         }
 
         public Message SendVoice(long chatId, FileToSend file)
@@ -135,13 +129,13 @@ namespace CiviBotti
         }
 
 
-        private void BotOnMessageReceived(object sender, MessageEventArgs messageEventArgs) {
+        private async void BotOnMessageReceived(object sender, MessageEventArgs messageEventArgs) {
             var message = messageEventArgs.Message;
 
 
-            var user = message.From.Id;
+            var userId = message.From.Id;
 
-            var chatCb = _replyCallbacks.Find(_ => _.User == user && _.Chat == message.Chat.Id);
+            var chatCb = _replyCallbacks.Find(rbc => rbc.User == userId && rbc.Chat == message.Chat.Id);
             if (chatCb != null) {
                 _replyCallbacks.Remove(chatCb);
                 chatCb.Callback?.Invoke(message);
@@ -152,7 +146,8 @@ namespace CiviBotti
             var groupstring = "";
 
             if (message.Chat.Type != ChatType.Private) groupstring = $" ({message.Chat.Username})";
-            Console.WriteLine($"{DateTime.Now:MM\\/dd\\/yyyy HH:mm} [{GetChat(user).Username}]{groupstring} {message.Text}");
+            var user = await _bot.GetChatAsync(userId);
+            Console.WriteLine($@"{DateTime.Now:MM\/dd\/yyyy HH:mm} [{user.Username}]{groupstring} {message.Text}");
 
 
             if (!message.Text.StartsWith("/")) return;
@@ -160,7 +155,7 @@ namespace CiviBotti
             var commandSplit = message.Text.Split(' ')[0].Split('@');
             if (commandSplit.Length == 2 && !string.Equals(commandSplit[1], TechnicalName, StringComparison.OrdinalIgnoreCase)) return;
             var command = commandSplit[0].Split('/')[1];
-            Program.ParseCommand(command, message);
+            await SubProgram.ParseCommand(command, message);
         }
 
         #endregion

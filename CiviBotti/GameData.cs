@@ -16,14 +16,14 @@ namespace CiviBotti {
         public bool EnableDailyNotified { get; private init;}
         private string _currentPlayerRaw = "";
 
-        public List<PlayerData> Players { get; set;}
-        public string Name { get; set;}
-        public string TurnId { get; set;}
+        public List<PlayerData> Players { get; set;} = new();
+        public string Name { get; set; } = "";
+        public string TurnId { get; set; } = "";
 
         public bool InsertDatabase() {
             var sql = $"INSERT INTO games (gameid, ownerid, name, currentp, notified, turnid, enableDailyNotified, dailyNotified) values ({GameId}, {Owner.Id}, '{Name}', {CurrentPlayer.SteamId}, '{(TurntimerNotified ? 1 : 0)}', '{TurnId}', '{(EnableDailyNotified ? 1 : 0)}', '{(DailyNotified ? 1 : 0)}')";
             Console.WriteLine(sql);
-            var rows = Program.Database.ExecuteNonQuery(sql);
+            var rows = SubProgram.Database.ExecuteNonQuery(sql);
 
             return rows == 1;
         }
@@ -33,7 +33,7 @@ namespace CiviBotti {
             var sql = $"UPDATE games SET currentp = {CurrentPlayer.SteamId}, notified = {(TurntimerNotified ? 1 : 0)}, turnid = '{TurnId}', enableDailyNotified = {(EnableDailyNotified ? 1 : 0)}, dailyNotified = {(DailyNotified ? 1 : 0)} WHERE gameid = {GameId}";
 
             Console.WriteLine(sql);
-            var rows = Program.Database.ExecuteNonQuery(sql);
+            var rows = SubProgram.Database.ExecuteNonQuery(sql);
 
             return rows == 1;
         }
@@ -55,7 +55,7 @@ namespace CiviBotti {
             foreach (var chat in Chats) {
                 var sql = $"INSERT INTO gamechats (gameid, chatid) values ({GameId}, {chat})";
                 Console.WriteLine(sql);
-                Program.Database.ExecuteNonQuery(sql);
+                SubProgram.Database.ExecuteNonQuery(sql);
             }
         }
 
@@ -66,7 +66,7 @@ namespace CiviBotti {
      
             var sql = $"INSERT INTO gamechats (gameid, chatid) values ({GameId}, {chatId})";
             Console.WriteLine(sql);
-            Program.Database.ExecuteNonQuery(sql);
+            SubProgram.Database.ExecuteNonQuery(sql);
         }
 
         public void InsertFull() {
@@ -77,7 +77,7 @@ namespace CiviBotti {
 
         public static bool CheckDatabase(long gameId) {
             var sql = $"SELECT * FROM games WHERE gameid = {gameId}";
-            var reader = Program.Database.ExecuteReader(sql);
+            var reader = SubProgram.Database.ExecuteReader(sql);
             var result = reader.HasRows;
             reader.Close();
             return result;
@@ -85,7 +85,7 @@ namespace CiviBotti {
 
         public static List<GameData> GetAllGames() {
             const string sql = "SELECT * FROM games";
-            var reader = Program.Database.ExecuteReader(sql);
+            var reader = SubProgram.Database.ExecuteReader(sql);
 
             var collection = new List<GameData>();
             while (reader.Read()) {
@@ -117,7 +117,7 @@ namespace CiviBotti {
 
 
             var sql2 = $"SELECT * FROM players WHERE gameid = {GameId}";
-            var reader2 = Program.Database.ExecuteReader(sql2);
+            var reader2 = SubProgram.Database.ExecuteReader(sql2);
             while (reader2.Read()) {
                 var dateString = reader2.GetString(3);
                 DateTime.TryParse(dateString, DateTimeFormatInfo.CurrentInfo, DateTimeStyles.AssumeLocal, out var nextEta);
@@ -141,7 +141,7 @@ namespace CiviBotti {
 
 
             var sql3 = $"SELECT chatid FROM gamechats WHERE gameid = {GameId}";
-            var reader3 = Program.Database.ExecuteReader(sql3);
+            var reader3 = SubProgram.Database.ExecuteReader(sql3);
             while (reader3.Read()) {
                 Chats.Add(reader3.GetInt64(0));
             }
@@ -151,7 +151,7 @@ namespace CiviBotti {
         public void RemoveChat(long id) {
             var sql = $"DELETE FROM gamechats WHERE gameid = {GameId} AND chatid = {id}";
             Console.WriteLine(sql);
-            Program.Database.ExecuteNonQuery(sql);
+            SubProgram.Database.ExecuteNonQuery(sql);
         }
 
         public override string ToString() => $"{Name} ({GameId})";

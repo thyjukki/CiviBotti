@@ -18,7 +18,6 @@ namespace CiviBotti {
         }
 
         public Database(DatabaseType t, IConfiguration configs) {
-
             switch (t) {
                 case DatabaseType.SqLite:
                     if (!System.IO.File.Exists("database.sqlite")) {
@@ -64,13 +63,16 @@ namespace CiviBotti {
 
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(t), t, "Unsupported database type");
+                    _connection = new SQLiteConnection("Data Source=database.sqlite;Version=3;");
+                    break;
             }
         }
 
         public int ExecuteNonQuery(string sql) {
             try {
-                _connection.Open();
+                if (_connection.State != ConnectionState.Open) {
+                    _connection.Open();
+                }
                 var command = _connection.CreateCommand();
                 command.CommandText = sql;
                 return command.ExecuteNonQuery();
@@ -83,7 +85,9 @@ namespace CiviBotti {
         public DbDataReader ExecuteReader(string sql) {
 
             try {
-                _connection.Open();
+                if (_connection.State != ConnectionState.Open) {
+                    _connection.Open();
+                }
                 var command = _connection.CreateCommand();
                 command.CommandText = sql;
                 return command.ExecuteReader();

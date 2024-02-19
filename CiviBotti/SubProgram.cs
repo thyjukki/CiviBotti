@@ -24,36 +24,29 @@ namespace CiviBotti
     using System.Text;
     using HtmlAgilityPack;
 
-    public static class Program
+    public class SubProgram
     {
         public static List<GameData> Games { get; private set; } = new();
 
         public static Database Database { get; private set; }
 
+        public static TelegramBot Bot { get; private set; }
+        private static IConfigurationRoot Configs { get; set; } = null!;
+
         private static readonly HttpClient HttpInstance = new ();
 
-        public static TelegramBot Bot { get; private set; }
+        public SubProgram(IConfigurationRoot configs, Database database, TelegramBot bot) {
+            Configs = configs;
+            Database = database;
+            Bot = bot;
+        }
 
-        private static IConfigurationRoot Configs { get; set; } = null!;
         
         
         public static string GmrUrl { get; private set; } = "";
 
-        [STAThread]
-        public static void Main() {
-            var builder = new ConfigurationBuilder()
-                .AddXmlFile("bot.config", optional: true)
-                .AddEnvironmentVariables();
-            Configs = builder.Build();
-            
-            if (Configs == null) return;
-
-            var dbType = (Database.DatabaseType)Enum.Parse(typeof(Database.DatabaseType), Configs["DB_TYPE"]);
-            Database = new Database(dbType, Configs);
-
-            Bot = new TelegramBot(Configs["BOT_TOKEN"]);
+        public async Task RunAsync() {
             GmrUrl = Configs["GMR_URL"];
-
             Games = GameData.GetAllGames();
             foreach (var game in Games) {
                 game.GetGameData();
@@ -62,16 +55,14 @@ namespace CiviBotti
             var players = (from game in Games from player in game.Players select player.SteamId).ToList();
             var playerSteamNames = GetSteamUserNames(players);
 
-            if (Configs.GetValue<bool>("DEBUG")) {
-                DebugPrintGames(playerSteamNames);
-            }
+            await InitializePlayers(playerSteamNames);
 
             Bot.StartReceiving();
             var aTimer = new Timer(30000);
-            aTimer.Elapsed += Tick;
+            aTimer.Elapsed += OnTick;
             aTimer.Enabled = true;
             aTimer.Start();
-            Tick(null, null);
+            OnTick(null, null);
             while (true) {
                 var msg = Console.ReadLine();
 
@@ -83,7 +74,7 @@ namespace CiviBotti
             Bot.StopReceiving();
         }
 
-        private static void DebugPrintGames(IReadOnlyDictionary<string, string> playerSteamNames) {
+        private static async Task InitializePlayers(IReadOnlyDictionary<string, string> playerSteamNames) {
             foreach (var game in Games) {
                 Console.WriteLine($"{game} {game.Owner}");
                 Console.WriteLine(" chats:");
@@ -94,14 +85,15 @@ namespace CiviBotti
                 Console.WriteLine(" players:");
                 foreach (var player in game.Players) {
                     if (!playerSteamNames.TryGetValue(player.SteamId, out var steamName)) {
-                        Console.WriteLine($"  -{player} ({player.TurnOrder}) {player.User} Error gettig steamname");
+                        Console.WriteLine($"  -{player} ({player.TurnOrder}) {player.User} Error getting steam name");
                         continue;
                     }
                     player.SteamName = steamName;
 
 
                     if (player.User != null) {
-                        player.TgName = Bot.GetChat(player.User.Id)?.Username;
+                        var user = await Bot.GetChat(player.User.Id);
+                        player.TgName = user.Username;
                     }
 
                     Console.WriteLine($"  -{player} ({player.TurnOrder}) {player.User}");
@@ -112,9 +104,9 @@ namespace CiviBotti
         }
 
 
-        private static void Tick(object sender, ElapsedEventArgs e) {
+        private static async void OnTick(object sender, ElapsedEventArgs e) {
             foreach (var game in Games) {
-                PollTurn(game);
+                await PollTurn(game);
             }
         }
 
@@ -127,7 +119,7 @@ namespace CiviBotti
                    string.Equals(a, $"{b}@civi_gmr_bot", StringComparison.InvariantCultureIgnoreCase);
         }
 
-        private static void NewGame(Message message, Chat chat) {
+        private static async Task NewGame(Message message, Chat chat) {
             Bot.SetChatAction(chat.Id, ChatAction.Typing);
             if (chat.Type != ChatType.Private) {
                 Bot.SendText(message.Chat.Id, "New game can only be created in private chat!");
@@ -190,7 +182,8 @@ namespace CiviBotti
                 playerData.SteamName = GetSteamUserName(playerData.SteamId);
 
                 if (playerData.User != null) {
-                    playerData.TgName = Bot.GetChat(playerData.User.Id).Username;
+                    var user = await Bot.GetChat(playerData.User.Id);
+                    playerData.TgName = user.Username;
                 }
 
                 if (currentPlayerId == playerData.SteamId) {
@@ -209,7 +202,7 @@ namespace CiviBotti
             Bot.SendText(message.Chat.Id, $"Succesfuly created the game {newGame.Name}!");
         }
 
-        public static void ParseCommand(string cmd, Message message) {
+        public static async Task ParseCommand(string cmd, Message message) {
             if (message.Type != MessageType.TextMessage) {
                 return;
             }
@@ -268,19 +261,19 @@ namespace CiviBotti
                     Turntimers(chat, false);
                     break;
                 case Command.Listsubs:
-                    ListSubs(message, chat);
+                    await ListSubs(message, chat);
                     break;
                 case Command.Addsub:
                     AddSub(message, chat);
                     break;
                 case Command.Removesub:
-                    RemoveSub(message, chat);
+                    await RemoveSub(message, chat);
                     break;
                 case Command.Doturn:
-                    DoTurn(message, chat);
+                    await DoTurn(message, chat);
                     break;
                 case Command.Submitturn:
-                    SubmitTurn(message, chat);
+                    await SubmitTurn(message, chat);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(cmd), $"Command {nameof(command)} not in command list");
@@ -290,41 +283,53 @@ namespace CiviBotti
         
 
 
-        private static void SubmitTurnGetUploadCallback(Message originalMsg, Message callbackMsg, UserData callerUser,
-            UserData selectedUser, GameData selectedGame) {
+        private static async void OnSubmitTurnGetUploadCallback(Message originalMsg, Message callbackMsg, UserDataStorage callerUser,
+            PlayerDataStorage selectedPlayer) {
             if (callbackMsg.Type != MessageType.DocumentMessage) {
-                Bot.AddReplyGet(originalMsg.From.Id, originalMsg.Chat.Id, message => SubmitTurnGetUploadCallback(originalMsg, message, callerUser, selectedUser, selectedGame));
+                Bot.AddReplyGet(originalMsg.From.Id, originalMsg.Chat.Id, message => OnSubmitTurnGetUploadCallback(originalMsg, message, callerUser, selectedPlayer));
                 Bot.SendText(originalMsg.Chat.Id, "Respond by uploading a file");
                 return;
             }
 
             Bot.SendText(originalMsg.Chat.Id, "Submitting turn");
             Bot.SetChatAction(originalMsg.Chat.Id, ChatAction.UploadDocument);
-            UploadSave(selectedUser, callerUser, selectedGame, callbackMsg.Document);
+            await UploadSave(callerUser, selectedPlayer, callbackMsg.Document);
         }
         
-        private static void SubmitTurnGetSelectedCallback(Message originalMsg,Message callbackMsg, UserData callerUser) {
+        private static void OnSubmitTurnGetSelectedCallback(Message originalMsg,Message callbackMsg, List<PlayerDataStorage> otherPlayerStorage, UserDataStorage callerUser) {
             foreach (var game in Games) {
-                var user = game.CurrentPlayer?.User;
+                var user = game.CurrentPlayer.User;
                 if (user == null) {
                     continue;
                 }
 
-                if (!user.Subs.Exists(sub => sub.SubId == callerUser.Id) && user.SteamId != callerUser.SteamId) {
+                if (!user.Subs.Exists(sub => sub.SubId == callerUser.UserData.Id) && user.SteamId != callerUser.UserData.SteamId) {
+                    continue;
+                }
+                
+                var selectedPlayer = otherPlayerStorage.Find(playerStorage => $"{playerStorage.Username}@{playerStorage.Game.Name}" == callbackMsg.Text);
+                if (selectedPlayer.Username == null) {
                     continue;
                 }
 
-                if ($"{user.Name}@{game.Name}" != callbackMsg.Text) {
-                    continue;
-                }
-
-                Bot.AddReplyGet(originalMsg.From.Id, originalMsg.Chat.Id, message => SubmitTurnGetUploadCallback(originalMsg, message, callerUser, user, game));
+                Bot.AddReplyGet(originalMsg.From.Id, originalMsg.Chat.Id, message => OnSubmitTurnGetUploadCallback(originalMsg, message, callerUser, selectedPlayer));
                 Bot.SendText(originalMsg.Chat.Id, "Upload the file");
                 return;
             }
         }
-        
-        private static void SubmitTurn(Message message, Chat chat) {
+
+        struct UserDataStorage
+        {
+            public string Username;
+            public UserData UserData;
+        }
+        struct PlayerDataStorage
+        {
+            public string Username;
+            public UserData UserData;
+            public GameData Game;
+        }
+        private static async Task SubmitTurn(Message message, Chat chat) {
             if (chat.Type != ChatType.Private) {
                 Bot.SendText(message.Chat.Id, "This can only be done in private!");
                 return;
@@ -332,41 +337,55 @@ namespace CiviBotti
 
             Bot.SetChatAction(message.Chat.Id, ChatAction.Typing);
 
-            var callerUser = UserData.Get(message.From.Id);
+            var callerUserData = UserData.Get(message.From.Id);
 
-            if (callerUser == null) {
+            if (callerUserData == null) {
                 Bot.SendText(chat, "You are not registered in any games");
                 return;
             }
 
-            var test = new List<KeyboardButton>();
+            var callerUser = new UserDataStorage {
+                UserData = callerUserData
+            };
+            callerUser.Username = (await Bot.GetChat(callerUser.UserData.Id)).Username;
+
+            var otherPlayers = new List<PlayerDataStorage>();
+            var keyboardButtons = new List<KeyboardButton>();
             foreach (var game in Games) {
-                var user = game.CurrentPlayer.User;
-                if (user == null) {
+                var otherUser = game.CurrentPlayer.User;
+                if (otherUser == null) {
                     continue;
                 }
 
-                if (user.Subs.Exists(_ => _.SubId == callerUser.Id) || user.SteamId == callerUser.SteamId)
-                    test.Add(new KeyboardButton($"{user.Name}@{game.Name}"));
+                if (otherUser.Subs.Exists(sub => sub.SubId == callerUser.UserData.Id) || otherUser.SteamId == callerUser.UserData.SteamId) {
+                    var otherUserStorage = new PlayerDataStorage {
+                        UserData = otherUser,
+                        Game = game,
+                        Username = (await Bot.GetChat(otherUser.Id)).Username
+                    };
+                    keyboardButtons.Add(new KeyboardButton($"{otherUserStorage.Username}@{game.Name}"));
+                    otherPlayers.Add(otherUserStorage);
+                }
+                
             }
 
-            if (test.Count == 0) {
+            if (keyboardButtons.Count == 0) {
                 Bot.SendText(message.Chat.Id, "You can not submit anyones turn at the moment");
                 return;
             }
 
-            test.Add(new KeyboardButton("cancel"));
+            keyboardButtons.Add(new KeyboardButton("cancel"));
 
-            var forceReply = new ReplyKeyboardMarkup(test.ToArray()) {
+            var forceReply = new ReplyKeyboardMarkup(keyboardButtons.ToArray()) {
                 OneTimeKeyboard = true,
                 Selective = true
             };
 
-            Bot.AddReplyGet(message.From.Id, chat.Id, callbackMsg => SubmitTurnGetSelectedCallback(message, callbackMsg, callerUser));
+            Bot.AddReplyGet(message.From.Id, chat.Id, callbackMsg => OnSubmitTurnGetSelectedCallback(message, callbackMsg, otherPlayers, callerUser));
             Bot.SendText(message.Chat.Id, "Chose game to submit save to", forceReply);
         }
 
-        private static void DoTurnGetSelectedCallback(Message originalMsg, Message callbackMessage, UserData callerUser) {
+        private static async void OnDoTurnGetSelectedCallback(Message originalMsg, Message callbackMessage, UserData callerUser) {
             foreach (var game in Games) {
                 var user = game.CurrentPlayer?.User;
                 if (user == null) {
@@ -376,17 +395,18 @@ namespace CiviBotti
                 if (!user.Subs.Exists(sub => sub.SubId == callerUser.Id) && user.SteamId != callerUser.SteamId) {
                     continue;
                 }
-
-                if ($"{user.Name}@{game.Name}" != callbackMessage.Text) {
+                
+                var username = (await Bot.GetChat(user.Id)).Username;
+                if ($"{username}@{game.Name}" != callbackMessage.Text) {
                     continue;
                 }
 
                 Bot.SetChatAction(originalMsg.Chat.Id, ChatAction.UploadDocument);
-                DownloadSave(user, callerUser, game);
+                await DownloadSave(user, username, callerUser, game);
                 return;
             }
         }
-        private static void DoTurn(Message message, Chat chat) {
+        private static async Task DoTurn(Message message, Chat chat) {
             Bot.SetChatAction(message.Chat.Id, ChatAction.Typing);
 
             if (chat.Type != ChatType.Private) {
@@ -402,53 +422,52 @@ namespace CiviBotti
             }
             
 
-            var test = new List<KeyboardButton>();
+            var keyboardButtons = new List<KeyboardButton>();
             foreach (var game in Games) {
-                var user = game.CurrentPlayer?.User;
+                var user = game.CurrentPlayer.User;
                 if (user == null) {
                     continue;
                 }
 
-                if (user.Subs.Exists(sub => sub.SubId == callerUser.Id) || user.SteamId == callerUser.SteamId)
-                    test.Add(new KeyboardButton($"{user.Name}@{game.Name}"));
+                if (user.Subs.Exists(sub => sub.SubId == callerUser.Id) || user.SteamId == callerUser.SteamId) {
+                    var subUser = await Bot.GetChat(user.Id);
+                    keyboardButtons.Add(new KeyboardButton($"{subUser.Username}@{game.Name}"));
+                }
+                
             }
 
-            if (test.Count == 0) {
+            if (keyboardButtons.Count == 0) {
                 Bot.SendText(message.Chat.Id, "You can not play anyone's turn at the moment", new ReplyKeyboardRemove());
                 return;
             }
 
-            test.Add(new KeyboardButton("cancel"));
+            keyboardButtons.Add(new KeyboardButton("cancel"));
 
-            var forceReply = new ReplyKeyboardMarkup(test.ToArray()) {
+            var forceReply = new ReplyKeyboardMarkup(keyboardButtons.ToArray()) {
                 OneTimeKeyboard = true,
                 Selective = true
             };
 
-            Bot.AddReplyGet(message.From.Id, chat.Id,
-                callbackMsg => DoTurnGetSelectedCallback(message, callbackMsg, callerUser));
+            Bot.AddReplyGet(message.From.Id, chat.Id,  callbackMsg => OnDoTurnGetSelectedCallback(message, callbackMsg, callerUser));
             Bot.SendText(message.Chat.Id, "Chose game to sub", forceReply);
         }
 
-        private static void DownloadSave(UserData user, UserData callerUser, GameData game) {
-            HttpInstance
-                .GetAsync(
-                    $"{GmrUrl}api/Diplomacy/GetLatestSaveFileBytes?authKey={user.AuthKey}&gameId={game.GameId}")
-                .ContinueWith(
-                    (requestTask) => {
-                        var response = requestTask.Result;
-                        if (!response.IsSuccessStatusCode) return;
+        private static async Task DownloadSave(UserData user, string userName, UserData callerUser, GameData game) {
+            var response = await HttpInstance.GetAsync($"{GmrUrl}api/Diplomacy/GetLatestSaveFileBytes?authKey={user.AuthKey}&gameId={game.GameId}");
+            response.EnsureSuccessStatusCode();
+ 
+            if (!response.IsSuccessStatusCode) return;
 
-                        var stream = response.Content.ReadAsStreamAsync().Result;
-                        var file = new FileToSend($"(GMR) {user.Name} {game.Name}.Civ5Save", stream);
-                        Bot.SendFile(callerUser.Id, file);
-                        Bot.SendText(callerUser.Id, "Use /submitturn command to submit turn",
-                            new ReplyKeyboardRemove());
-                        Bot.SendText(user.Id, $"{callerUser.Name} downloaded your turn");
-                    });
+            
+            var stream = response.Content.ReadAsStreamAsync().Result;
+            var file = new FileToSend($"(GMR) {userName} {game.Name}.Civ5Save", stream);
+            Bot.SendFile(callerUser.Id, file);
+            Bot.SendText(callerUser.Id, "Use /submitturn command to submit turn",
+                new ReplyKeyboardRemove());
+            Bot.SendText(user.Id, $"Sub downloaded your turn");
         }
 
-        private static void UploadSave(UserData user, UserData callerUser, GameData game, File doc) {
+        private static async Task UploadSave(UserDataStorage callerUser, PlayerDataStorage selectedPlayer, File doc) {
             var uri = new Uri(GmrUrl);
             var httpClient = new HttpClient();
             httpClient.BaseAddress = uri;
@@ -457,34 +476,32 @@ namespace CiviBotti
             var form =
                 new MultipartFormDataContent(
                     $"Upload----{(object)DateTime.UtcNow.ToString(CultureInfo.InvariantCulture)}") {
-                    { new StringContent(game.TurnId), "turnId" },
+                    { new StringContent(selectedPlayer.Game.TurnId), "turnId" },
                     { new StringContent("False"), "isCompressed" },
-                    { new StringContent(user.AuthKey), "authKey" },
-                    { new StreamContent(stream), "saveFileUpload", $"{game.TurnId}.Civ5Save" }
+                    { new StringContent(selectedPlayer.UserData.AuthKey), "authKey" },
+                    { new StreamContent(stream), "saveFileUpload", $"{selectedPlayer.Game.TurnId}.Civ5Save" }
                 };
 
-            httpClient
+            var response = await httpClient
                 .PostAsync(
                     "Game/UploadSaveClient",
-                    form).ContinueWith(
-                    (requestTask) => {
-                        var response = requestTask.Result;
-                        if (!response.IsSuccessStatusCode) {
-                            return;
-                        }
+                    form);
+                
+            if (!response.IsSuccessStatusCode) {
+                return;
+            }
 
-                        var json = JObject.Parse(response.Content.ReadAsStringAsync().Result);
-                        if (json["ResultType"].ToString() == "1") {
-                            Bot.SendText(callerUser.Id, "Turn submited");
-                            Bot.SendText(user.Id, $"{callerUser.Name} submited your turn");
-                        }
-                        else {
-                            Bot.SendText(callerUser.Id, $"Failed to submit turn {json["ResultType"]}");
-                        }
-                    });
+            var json = JObject.Parse(response.Content.ReadAsStringAsync().Result);
+            if (json["ResultType"].ToString() == "1") {
+                Bot.SendText(callerUser.UserData.Id, "Turn submited");
+                Bot.SendText(selectedPlayer.UserData.Id, $"{callerUser.Username} submited your turn");
+            }
+            else {
+                Bot.SendText(callerUser.UserData.Id, $"Failed to submit turn {json["ResultType"]}");
+            }
         }
 
-        private static void RemoveSub(Message message, Chat chat) {
+        private static async Task RemoveSub(Message message, Chat chat) {
             if (chat.Type != ChatType.Private) {
                 Bot.SendText(message.Chat.Id, "This can only be done in private!");
                 return;
@@ -499,39 +516,46 @@ namespace CiviBotti
                 return;
             }
 
-            var test = callerUser.Subs.Select(_ => new KeyboardButton($"{Bot.GetChat(_.SubId).Username}@{_.Game.Name}"))
-                .ToList();
+            
+            var keyboardButtons = new List<KeyboardButton>();
+            foreach (var sub in callerUser.Subs) {
+                var subUser = await Bot.GetChat(sub.SubId);
+                keyboardButtons.Add(new KeyboardButton($"{subUser.Username}@{sub.Game.Name}"));
+            }
 
-            test.Add(new KeyboardButton("cancel"));
+            keyboardButtons.Add(new KeyboardButton("cancel"));
 
-            var forceReply = new ReplyKeyboardMarkup(test.ToArray()) {
+            var forceReply = new ReplyKeyboardMarkup(keyboardButtons.ToArray()) {
                 OneTimeKeyboard = true,
                 Selective = true
             };
             
 
-            void GetSelectedCallback(Message msg) {
-                var sub = callerUser.Subs.Find(sub => $"{Bot.GetChat(sub.SubId).Username}@{sub.Game.Name}" == msg.Text);
-                if (sub == null) {
+            async void OnGetSelectedCallback(Message msg) {
+                var index = keyboardButtons.FindIndex(button => button.Text == msg.Text);
+                if (index == keyboardButtons.Count - 1) {
                     return;
                 }
+                var sub = callerUser.Subs[index];
 
                 var game = sub.Game;
                 var user = UserData.Get(sub.SubId);
 
                 callerUser.Subs.Remove(sub);
                 sub.RemoveSub();
-                if (user == null || game == null) {
+                if (user == null) {
                     Console.WriteLine("GetSelectedCallback weird case");
                     Bot.SendText(chat,"Weird case, game or user null?");
                     return;
                 }
 
-                Bot.SendText(chat, $"Removed {user.Name} subbing from {game.Name}", new ReplyKeyboardRemove());
-                Bot.SendText(user.Id, $"{callerUser.Name} revoked your sub rights from {game.Name}");
+                var userName = (await Bot.GetChat(user.Id)).Username;
+                var callerUserName = (await Bot.GetChat(callerUser.Id)).Username;
+                Bot.SendText(chat, $"Removed {userName} subbing from {game.Name}", new ReplyKeyboardRemove());
+                Bot.SendText(user.Id, $"{callerUserName} revoked your sub rights from {game.Name}");
             }
 
-            Bot.AddReplyGet(message.From.Id, chat.Id, GetSelectedCallback);
+            Bot.AddReplyGet(message.From.Id, chat.Id, OnGetSelectedCallback);
             Bot.SendText(message.Chat.Id, "Chose sub to remove", forceReply);
         }
 
@@ -550,48 +574,56 @@ namespace CiviBotti
                 return;
             }
 
-            GameData selectedGame = null;
-            UserData selectedUser = null;
+            GameData? selectedGame;
+            UserData? selectedUser;
 
             void GetGameCallback(Message msg) {
-                selectedGame = Games.Find(_ => _.Name == msg.Text);
+                selectedGame = Games.Find(gameData => gameData.Name == msg.Text);
 
-                var users = selectedGame.Players.Where(_ => _.User != null).Select(_ => new KeyboardButton(_.Name))
+                if (selectedGame == null) {
+                    return;
+                }
+
+                var users = selectedGame.Players.Where(player => player.User != null).Select(player => new KeyboardButton(player.Name))
                     .ToArray();
 
                 var userReply = new ReplyKeyboardMarkup(users) {
                     OneTimeKeyboard = true,
                     Selective = true
                 };
-                Bot.AddReplyGet(msg.From.Id, chat.Id, GetUserCallback);
+                Bot.AddReplyGet(msg.From.Id, chat.Id, OnGetUserCallback);
                 Bot.SendText(msg.Chat.Id, "Chose the user", userReply);
             }
 
-            void GetUserCallback(Message msg) {
-                selectedUser = selectedGame.Players.Find(_ => _.User != null && _.User.Name == msg.Text).User;
+            void OnGetUserCallback(Message msg) {
+                selectedUser = selectedGame.Players.Find(playerData => playerData.User != null && playerData.Name == msg.Text).User;
 
-                Bot.AddReplyGet(msg.From.Id, chat.Id, GetTimesCallback);
+                Bot.AddReplyGet(msg.From.Id, chat.Id, OnGetTimesCallback);
                 Bot.SendText(msg.Chat.Id, "How many times can he play your turns in this game? (0 for unlimited)",
                     new ReplyKeyboardRemove());
             }
 
-            void GetTimesCallback(Message msg) {
+            async void OnGetTimesCallback(Message msg) {
                 if (!int.TryParse(msg.Text, out var selectedTimes) || selectedTimes < 0) {
-                    Bot.AddReplyGet(msg.From.Id, chat.Id, GetTimesCallback);
+                    Bot.AddReplyGet(msg.From.Id, chat.Id, OnGetTimesCallback);
                     Bot.SendText(msg.Chat.Id, "Please provide a positive integer", new ReplyKeyboardRemove());
                     return;
                 }
 
-                SetSub(selectedGame, selectedUser, selectedTimes);
+                await SetSub(selectedGame, selectedUser, selectedTimes);
             }
 
 
-            void SetSub(GameData game, UserData user, int times) {
+            async Task SetSub(GameData game, UserData user, int times) {
                 var sub = new SubData(callerUser.Id, user.Id, times, game);
                 sub.InsertDatabase();
                 user.Subs.Add(sub);
-                Bot.SendText(message.Chat.Id, $"Added {user.Name} as sub in {game.Name}", new ReplyKeyboardRemove());
-                Bot.SendText(user.Id, $"{callerUser.Name} has given you rights to do his turn in {game.Name}");
+                
+                var userName = (await Bot.GetChat(user.Id)).Username;
+                var callerUserName = (await Bot.GetChat(callerUser.Id)).Username;
+                
+                Bot.SendText(message.Chat.Id, $"Added {userName} as sub in {game.Name}", new ReplyKeyboardRemove());
+                Bot.SendText(user.Id, $"{callerUserName} has given you rights to do his turn in {game.Name}");
             }
 
             var games = Games.Where(_ => _.Players.Exists(player => player.User != null && player.User.SteamId == callerUser.SteamId))
@@ -1112,7 +1144,7 @@ namespace CiviBotti
             Bot.SendText(message.Chat.Id, "Registered with steamid " + steamId);
         }
 
-        private static void ListSubs(Message message, Chat chat) {
+        private static async Task ListSubs(Message message, Chat chat) {
             Bot.SetChatAction(chat.Id, ChatAction.Typing);
             if (chat.Type != ChatType.Private) {
                 Bot.SendText(message.Chat.Id, "Subs should be done in private chat");
@@ -1126,26 +1158,27 @@ namespace CiviBotti
                 return;
             }
 
-            var returnString = new StringBuilder();
+            var stringBuilder = new StringBuilder();
             foreach (var game in Games.Where(game => game.Players.Exists(userData => userData.User.SteamId == callerUser.SteamId))) {
-                returnString.Append($"{game.Name}:\n");
+                stringBuilder.Append($"{game.Name}:\n");
 
                 if (callerUser.Subs == null || callerUser.Subs.Count == 0 ||
                     !callerUser.Subs.Exists(_ => _.Game.GameId == game.GameId)) {
-                    returnString.Append(" none\n");
+                    stringBuilder.Append(" none\n");
                     continue;
                 }
 
-                returnString = callerUser.Subs.FindAll(_ => _.Game.GameId == game.GameId).Aggregate(returnString,
-                    (current, sub) =>
-                        current.Append($" -{Bot.GetChat(sub.SubId).Username} for {(sub.Times == 0 ? "unlimited" : sub.Times.ToString())} times\n"));
+                foreach (var sub in callerUser.Subs.FindAll(subData => subData.Game.GameId == game.GameId)) {
+                    var subUser = await Bot.GetChat(sub.SubId);
+                    stringBuilder.Append($" -{subUser.Username} for {(sub.Times == 0 ? "unlimited" : sub.Times.ToString())} times\n");
+                }
             }
 
-            if (returnString.Length == 0) {
-                returnString.Append("You are not in any games");
+            if (stringBuilder.Length == 0) {
+                stringBuilder.Append("You are not in any games");
             }
 
-            Bot.SendText(message.Chat.Id, returnString.ToString());
+            Bot.SendText(message.Chat.Id, stringBuilder.ToString());
         }
 
 
@@ -1189,7 +1222,7 @@ namespace CiviBotti
             return null;
         }
 
-        private static void PollTurn(GameData game) {
+        private static async Task PollTurn(GameData game) {
             try {
                 var gameData = GetGameData(game);
 
@@ -1257,7 +1290,7 @@ namespace CiviBotti
             }
         }
 
-        private static void ChangeTurns(GameData game, string currentPlayerId, JToken current) {
+        private static async Task ChangeTurns(GameData game, string currentPlayerId, JToken current) {
             var player = game.Players.Find(playerData => playerData.SteamId == currentPlayerId);
             
             if (player == null) {
@@ -1276,7 +1309,8 @@ namespace CiviBotti
             player.User = UserData.GetBySteamId(player.SteamId);
 
             if (player.User != null) {
-                player.TgName = Bot.GetChat(player.User.Id).Username;
+                var tgUser = await Bot.GetChat(player.User.Id);
+                player.TgName = tgUser.Username;
             }
 
             foreach (var chat in game.Chats) {
