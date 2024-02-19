@@ -23,6 +23,7 @@ namespace CiviBotti
 {
     using System.Text;
     using HtmlAgilityPack;
+    using Telegram.Bot.Types.InputFiles;
 
     public class SubProgram
     {
@@ -203,7 +204,7 @@ namespace CiviBotti
         }
 
         public static async Task ParseCommand(string cmd, Message message) {
-            if (message.Type != MessageType.TextMessage) {
+            if (message.Type != MessageType.Text) {
                 return;
             }
 
@@ -285,7 +286,7 @@ namespace CiviBotti
 
         private static async void OnSubmitTurnGetUploadCallback(Message originalMsg, Message callbackMsg, UserDataStorage callerUser,
             PlayerDataStorage selectedPlayer) {
-            if (callbackMsg.Type != MessageType.DocumentMessage) {
+            if (callbackMsg.Type != MessageType.Document) {
                 Bot.AddReplyGet(originalMsg.From.Id, originalMsg.Chat.Id, message => OnSubmitTurnGetUploadCallback(originalMsg, message, callerUser, selectedPlayer));
                 Bot.SendText(originalMsg.Chat.Id, "Respond by uploading a file");
                 return;
@@ -460,32 +461,39 @@ namespace CiviBotti
 
             
             var stream = response.Content.ReadAsStreamAsync().Result;
-            var file = new FileToSend($"(GMR) {userName} {game.Name}.Civ5Save", stream);
+            var file = new InputOnlineFile(stream, $"(GMR) {userName} {game.Name}.Civ5Save");
             Bot.SendFile(callerUser.Id, file);
             Bot.SendText(callerUser.Id, "Use /submitturn command to submit turn",
                 new ReplyKeyboardRemove());
             Bot.SendText(user.Id, $"Sub downloaded your turn");
         }
 
-        private static async Task UploadSave(UserDataStorage callerUser, PlayerDataStorage selectedPlayer, File doc) {
+        private static async Task UploadSave(UserDataStorage callerUser, PlayerDataStorage selectedPlayer, Document doc) {
             var uri = new Uri(GmrUrl);
             var httpClient = new HttpClient();
             httpClient.BaseAddress = uri;
             httpClient.DefaultRequestHeaders.ExpectContinue = false;
-            var stream = Bot.GetFileAsStream(doc);
-            var form =
-                new MultipartFormDataContent(
-                    $"Upload----{(object)DateTime.UtcNow.ToString(CultureInfo.InvariantCulture)}") {
-                    { new StringContent(selectedPlayer.Game.TurnId), "turnId" },
-                    { new StringContent("False"), "isCompressed" },
-                    { new StringContent(selectedPlayer.UserData.AuthKey), "authKey" },
-                    { new StreamContent(stream), "saveFileUpload", $"{selectedPlayer.Game.TurnId}.Civ5Save" }
-                };
 
-            var response = await httpClient
-                .PostAsync(
-                    "Game/UploadSaveClient",
-                    form);
+            var fileInfo = await Bot.bot.GetFileAsync(doc.FileId);
+            
+            HttpResponseMessage response;
+            using (var ms = new MemoryStream(fileInfo.FileSize)) 
+            {  
+                await Bot.bot.DownloadFileAsync(
+                    filePath: fileInfo.FilePath,
+                    destination: ms
+                );
+                var form =
+                    new MultipartFormDataContent(
+                        $"Upload----{(object)DateTime.UtcNow.ToString(CultureInfo.InvariantCulture)}") {
+                        { new StringContent(selectedPlayer.Game.TurnId), "turnId" },
+                        { new StringContent("False"), "isCompressed" },
+                        { new StringContent(selectedPlayer.UserData.AuthKey), "authKey" },
+                        { new StreamContent(ms), "saveFileUpload", $"{selectedPlayer.Game.TurnId}.Civ5Save" }
+                    };
+                response = await httpClient.PostAsync("Game/UploadSaveClient",  form);
+            }
+
                 
             if (!response.IsSuccessStatusCode) {
                 return;
@@ -922,7 +930,7 @@ namespace CiviBotti
             var synthesisResult = await speechSynthesizer.SpeakTextAsync(output);
 
             if (synthesisResult.Reason == ResultReason.Canceled) return;
-            var file = new FileToSend("output.ogg", System.IO.File.Open(path, FileMode.Open));
+            var file = new InputOnlineFile(System.IO.File.Open(path, FileMode.Open), "output.ogg");
             Bot.SendVoice(message.Chat.Id, file);
             System.IO.File.Delete(path);
         }

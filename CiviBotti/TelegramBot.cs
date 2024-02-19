@@ -13,6 +13,7 @@ using File = Telegram.Bot.Types.File;
 namespace CiviBotti
 {
     using System.Threading.Tasks;
+    using Telegram.Bot.Types.InputFiles;
 
     public class TelegramBot
     {
@@ -48,7 +49,7 @@ namespace CiviBotti
             bot.StopReceiving();
         }
 
-        public void SendText(long chat, string msg, ReplyMarkup replyMarkup = null) {
+        public void SendText(long chat, string msg, IReplyMarkup replyMarkup = null) {
             try
             {
                 bot.SendTextMessageAsync(chat, msg, replyMarkup: replyMarkup);
@@ -59,7 +60,7 @@ namespace CiviBotti
             }
         }
 
-        public void SendText(Chat chat, string msg, ReplyMarkup replyMarkup = null) {
+        public void SendText(Chat chat, string msg, IReplyMarkup replyMarkup = null) {
             SendText(chat.Id, msg, replyMarkup);
         }
 
@@ -84,12 +85,12 @@ namespace CiviBotti
             return await bot.GetChatAsync(userId);
         }
 
-        public Message SendVoice(long chatId, FileToSend file)
+        public Message SendVoice(long chatId, InputOnlineFile file)
         {
             return bot.SendVoiceAsync(chatId, file).Result;
         }
 
-        public Message SendFile(long chatId, FileToSend file)
+        public Message SendFile(long chatId, InputOnlineFile file)
         {
             return bot.SendDocumentAsync(chatId, file).Result;
         }
@@ -109,11 +110,6 @@ namespace CiviBotti
             }
         }
 
-        public Stream GetFileAsStream(File file) {
-            var test = bot.GetFileAsync(file.FileId).Result;
-            
-            return test.FileStream;
-        }
         #endregion
 
 
@@ -142,7 +138,7 @@ namespace CiviBotti
                 return;
             }
 
-            if (message.Type != MessageType.TextMessage) return;
+            if (message.Type != MessageType.Text) return;
             var groupstring = "";
 
             if (message.Chat.Type != ChatType.Private) groupstring = $" ({message.Chat.Username})";
