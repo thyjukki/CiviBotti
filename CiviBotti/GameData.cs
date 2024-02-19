@@ -34,7 +34,7 @@ namespace CiviBotti {
         /// <exception cref="DatabaseUnknownType">Condition.</exception>
         /// <exception cref="DatabaseQueryFail">Condition.</exception>
         public bool UpdateCurrent() {
-            var sql = $"UPDATE games SET currentp = {CurrentPlayer.SteamId}, notified = {(TurntimerNotified ? 1 : 0)}, turnid = '{TurnId}', enableDailyNotified = {{(EnableDailyNotified ? 1 : 0)}}, dailyNotified = {{(DailyNotified ? 1 : 0)}} WHERE gameid = {GameId}";
+            var sql = $"UPDATE games SET currentp = {CurrentPlayer.SteamId}, notified = {(TurntimerNotified ? 1 : 0)}, turnid = '{TurnId}', enableDailyNotified = {(EnableDailyNotified ? 1 : 0)}, dailyNotified = {(DailyNotified ? 1 : 0)} WHERE gameid = {GameId}";
 
             Console.WriteLine(sql);
             var rows = Program.Database.ExecuteNonQuery(sql);
