@@ -65,12 +65,12 @@ namespace CiviBotti {
             return user;
         }
         
-        public static UserData GetBySteamId(Database db, string steamId) {
+        public static UserData? GetBySteamId(Database db, string steamId) {
             var sql = $"SELECT * FROM users WHERE steamid = '{steamId}'";
             var reader = db.ExecuteReader(sql);
 
 
-            UserData user = null;
+            UserData? user = null;
             if (reader.Read()) {
                 var check = Users.Find(_ => _.Id == reader.GetInt64(0));
                 if (check != null) {
@@ -92,7 +92,7 @@ namespace CiviBotti {
             return user;
         }
 
-        public static UserData NewUser(int fromId, string steamId, string authKey) {
+        public static UserData NewUser(long fromId, string steamId, string authKey) {
             return new UserData { Id = fromId, SteamId = steamId, AuthKey = authKey };
         }
     }

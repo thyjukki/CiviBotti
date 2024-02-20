@@ -825,7 +825,7 @@ namespace CiviBotti
         }
 
         private async Task Tee(Message message, Chat chat) {
-            await _bot.Client.SendChatActionAsync(chat.Id, ChatAction.RecordAudio);
+            await _bot.Client.SendChatActionAsync(chat.Id, ChatAction.RecordVoice);
             var selectedGame = Games.Find(g => g.Chats.Any(chatId => chatId == chat.Id));
 
             if (selectedGame == null) {

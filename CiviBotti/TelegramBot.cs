@@ -42,7 +42,7 @@ namespace CiviBotti
             return await Client.GetChatAsync(userId);
         }
 
-        public void AddReplyGet(int user, long chat, Action<Message> callback)
+        public void AddReplyGet(long user, long chat, Action<Message> callback)
         {
 
             var chatCb = _replyCallbacks.Find(c => c.User == user && c.Chat == chat);
