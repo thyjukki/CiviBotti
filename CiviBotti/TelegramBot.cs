@@ -9,7 +9,6 @@ using Telegram.Bot.Types.Enums;
 namespace CiviBotti
 {
     using System.Threading.Tasks;
-    using Telegram.Bot.Types.InputFiles;
 
     public class TelegramBot
     {
@@ -41,16 +40,6 @@ namespace CiviBotti
 
         public async Task<Chat> GetChat(long userId) {
             return await Client.GetChatAsync(userId);
-        }
-
-        public Message SendVoice(long chatId, InputOnlineFile file)
-        {
-            return Client.SendVoiceAsync(chatId, file).Result;
-        }
-
-        public Message SendFile(long chatId, InputOnlineFile file)
-        {
-            return Client.SendDocumentAsync(chatId, file).Result;
         }
 
         public void AddReplyGet(int user, long chat, Action<Message> callback)

@@ -465,7 +465,7 @@ namespace CiviBotti
             
             var stream = response.Content.ReadAsStreamAsync().Result;
             var file = new InputOnlineFile(stream, $"(GMR) {userName} {game.Name}.Civ5Save");
-            _bot.SendFile(callerUser.Id, file);
+            await _bot.Client.SendDocumentAsync(callerUser.Id, file);
             await _bot.Client.SendTextMessageAsync(callerUser.Id, "Use /submitturn command to submit turn",
                 replyMarkup: new ReplyKeyboardRemove());
             await _bot.Client.SendTextMessageAsync(user.Id, $"Sub downloaded your turn");
@@ -878,7 +878,7 @@ namespace CiviBotti
 
             if (synthesisResult.Reason == ResultReason.Canceled) return;
             var file = new InputOnlineFile(System.IO.File.Open(path, FileMode.Open), "output.ogg");
-            _bot.SendVoice(message.Chat.Id, file);
+            await _bot.Client.SendVoiceAsync(message.Chat.Id, file);
             System.IO.File.Delete(path);
         }
 
