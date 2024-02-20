@@ -1255,10 +1255,10 @@ namespace CiviBotti
                 game.TurnStarted = DateTime.Parse(current["Started"].ToString());
 
                 if (oldPlayerId != currentPlayerId) {
-                    ChangeTurns(game, currentPlayerId, current);
+                    await ChangeTurns(game, currentPlayerId, current);
                 }
                 else {
-                    CheckTurnNotifications(game);
+                    await CheckTurnNotifications(game);
                 }
             }
             catch (Exception ex) {
@@ -1266,14 +1266,10 @@ namespace CiviBotti
             }
         }
 
-        private static void CheckTurnNotifications(GameData game) {
-            if (game.CurrentPlayer == null) {
-                return;
-            }
-
+        private static async Task CheckTurnNotifications(GameData game) {
             if (game.CurrentPlayer.NextEta == DateTime.MinValue) {
                 if (game.TurntimerNotified) {
-                    DailyNotify(game);
+                    await DailyNotify(game);
                     return;
                 }
                 var turnTimer = GetTurntimer(game, game.CurrentPlayer);
@@ -1330,7 +1326,7 @@ namespace CiviBotti
             }
         }
 
-        private static void DailyNotify(GameData game) {
+        private static async Task DailyNotify(GameData game) {
             if (!game.EnableDailyNotified) {
                 return;
             }
@@ -1382,7 +1378,7 @@ namespace CiviBotti
             game.DailyNotified = true;
             game.UpdateCurrent();
             foreach (var chat in game.Chats) {
-                Bot.SendText(chat, message);
+                await Bot.bot.SendTextMessageAsync(chat, message);
             }
         }
 
