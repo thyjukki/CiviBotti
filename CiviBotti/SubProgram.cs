@@ -124,7 +124,7 @@ namespace CiviBotti
         }
 
         private async Task NewGame(Message message, Chat chat) {
-            _bot.SetChatAction(chat.Id, ChatAction.Typing);
+            await _bot.Client.SendChatActionAsync(chat.Id, ChatAction.Typing);
             if (chat.Type != ChatType.Private) {
                 await _bot.Client.SendTextMessageAsync(message.Chat.Id, "New game can only be created in private chat!");
                 return;
@@ -296,7 +296,7 @@ namespace CiviBotti
             }
 
             await _bot.Client.SendTextMessageAsync(originalMsg.Chat.Id, "Submitting turn");
-            _bot.SetChatAction(originalMsg.Chat.Id, ChatAction.UploadDocument);
+            await _bot.Client.SendChatActionAsync(originalMsg.Chat.Id, ChatAction.UploadDocument);
             await UploadSave(callerUser, selectedPlayer, callbackMsg.Document);
         }
         
@@ -339,7 +339,7 @@ namespace CiviBotti
                 return;
             }
 
-            _bot.SetChatAction(message.Chat.Id, ChatAction.Typing);
+            await _bot.Client.SendChatActionAsync(message.Chat.Id, ChatAction.Typing);
 
             var callerUserData = UserData.Get(_database, message.From.Id);
 
@@ -405,13 +405,13 @@ namespace CiviBotti
                     continue;
                 }
 
-                _bot.SetChatAction(originalMsg.Chat.Id, ChatAction.UploadDocument);
+                await _bot.Client.SendChatActionAsync(originalMsg.Chat.Id, ChatAction.UploadDocument);
                 await DownloadSave(user, username, callerUser, game);
                 return;
             }
         }
         private async Task DoTurn(Message message, Chat chat) {
-            _bot.SetChatAction(message.Chat.Id, ChatAction.Typing);
+            await _bot.Client.SendChatActionAsync(message.Chat.Id, ChatAction.Typing);
 
             if (chat.Type != ChatType.Private) {
                 await _bot.Client.SendTextMessageAsync(message.Chat.Id, "This can only be done in private!");
@@ -518,7 +518,7 @@ namespace CiviBotti
                 return;
             }
 
-            _bot.SetChatAction(message.Chat.Id, ChatAction.Typing);
+            await _bot.Client.SendChatActionAsync(message.Chat.Id, ChatAction.Typing);
 
             var callerUser = UserData.Get(_database, message.From.Id);
 
@@ -576,7 +576,7 @@ namespace CiviBotti
                 return;
             }
 
-            _bot.SetChatAction(message.Chat.Id, ChatAction.Typing);
+            await _bot.Client.SendChatActionAsync(message.Chat.Id, ChatAction.Typing);
 
             var callerUser = UserData.Get(_database, message.From.Id);
 
@@ -687,7 +687,7 @@ namespace CiviBotti
         }
 
         private async Task Turntimers(Chat chat, bool onlyCurrent) {
-            _bot.SetChatAction(chat.Id, ChatAction.Typing);
+            await _bot.Client.SendChatActionAsync(chat.Id, ChatAction.Typing);
             var selectedGame = Games.FirstOrDefault(game => game.Chats.Any(chatId => chatId == chat.Id));
             if (selectedGame == null) {
                 await _bot.Client.SendTextMessageAsync(chat, "No game added to this chat");
@@ -720,11 +720,12 @@ namespace CiviBotti
         }
 
         private async Task AddGame(Message message, Chat chat) {
-            _bot.SetChatAction(chat.Id, ChatAction.Typing);
+            await _bot.Client.SendChatActionAsync(chat.Id, ChatAction.Typing);
 
             if (chat.Type != ChatType.Private) {
-                var admins = new List<ChatMember>(_bot.GetAdministrators(chat.Id));
-                if (!admins.Exists(x => x.User.Id == message.From.Id)) {
+                var admins = await _bot.Client.GetChatAdministratorsAsync(chat.Id);
+                
+                if (!admins.Select(admin => admin.User.Id).Contains(message.From.Id)) {
                     await _bot.Client.SendTextMessageAsync(message.Chat.Id, "Only group admin can do this!");
                     return;
                 }
@@ -769,11 +770,12 @@ namespace CiviBotti
         }
 
         private async Task RemoveGame(Message message, Chat chat) {
-            _bot.SetChatAction(chat.Id, ChatAction.Typing);
+            await _bot.Client.SendChatActionAsync(chat.Id, ChatAction.Typing);
 
             if (chat.Type != ChatType.Private) {
-                var admins = new List<ChatMember>(_bot.GetAdministrators(chat.Id));
-                if (!admins.Exists(x => x.User.Id == message.From.Id)) {
+                var admins = await _bot.Client.GetChatAdministratorsAsync(chat.Id);
+                
+                if (!admins.Select(admin => admin.User.Id).Contains(message.From.Id)) {
                     await _bot.Client.SendTextMessageAsync(message.Chat.Id, "Only group admin can do this!");
                     return;
                 }
@@ -795,7 +797,7 @@ namespace CiviBotti
         }
 
         private async Task Order(Message message, Chat chat) {
-            _bot.SetChatAction(chat.Id, ChatAction.Typing);
+            await _bot.Client.SendChatActionAsync(chat.Id, ChatAction.Typing);
             var selectedGame = Games.FirstOrDefault(game => game.Chats.Any(chatId => chatId == chat.Id));
             if (selectedGame == null) {
                 await _bot.Client.SendTextMessageAsync(chat, "No game added to this chat");
@@ -810,7 +812,7 @@ namespace CiviBotti
         }
 
         private async Task Next(Message message, Chat chat) {
-            _bot.SetChatAction(chat.Id, ChatAction.Typing);
+            await _bot.Client.SendChatActionAsync(chat.Id, ChatAction.Typing);
             var selectedGame = Games.FirstOrDefault(game => game.Chats.Any(chatId => chatId == chat.Id));
             if (selectedGame == null) {
                 await _bot.Client.SendTextMessageAsync(chat, "No game added to this chat");
@@ -823,7 +825,7 @@ namespace CiviBotti
         }
 
         private async Task Tee(Message message, Chat chat) {
-            _bot.SetChatAction(chat.Id, ChatAction.RecordAudio);
+            await _bot.Client.SendChatActionAsync(chat.Id, ChatAction.RecordAudio);
             var selectedGame = Games.Find(g => g.Chats.Any(chatId => chatId == chat.Id));
 
             if (selectedGame == null) {
@@ -881,7 +883,7 @@ namespace CiviBotti
         }
 
         private async Task Eta(Message message, Chat chat) {
-            _bot.SetChatAction(chat.Id, ChatAction.Typing);
+            await _bot.Client.SendChatActionAsync(chat.Id, ChatAction.Typing);
 
             var selectedGame = Games.Find(game => game.Chats.Any(chatId => chatId == chat.Id));
 
@@ -1020,8 +1022,9 @@ namespace CiviBotti
             else {
                 var game = GetGameFromChat(message.Chat.Id);
 
-                var admins = new List<ChatMember>(_bot.GetAdministrators(chat.Id));
-                if (admins.Exists(x => x.User.Id == message.From.Id)) {
+                var admins = await _bot.Client.GetChatAdministratorsAsync(chat.Id);
+                
+                if (admins.Select(admin => admin.User.Id).Contains(message.From.Id)) {
                     usage = game != null ? @"CiviBotti:
 /help - lolapua
 /addgame 'gameid' - Add a game to this chat" : @"CiviBotti:
@@ -1041,7 +1044,7 @@ namespace CiviBotti
         }
 
         private async Task RegisterGame(Message message, Chat chat) {
-            _bot.SetChatAction(chat.Id, ChatAction.Typing);
+            await _bot.Client.SendChatActionAsync(chat.Id, ChatAction.Typing);
             if (chat.Type != ChatType.Private) {
                 await _bot.Client.SendTextMessageAsync(message.Chat.Id, "Registering can only be created in private chat!");
                 return;
@@ -1079,7 +1082,7 @@ namespace CiviBotti
         }
 
         private async Task ListSubs(Message message, Chat chat) {
-            _bot.SetChatAction(chat.Id, ChatAction.Typing);
+            await _bot.Client.SendChatActionAsync(chat.Id, ChatAction.Typing);
             if (chat.Type != ChatType.Private) {
                 await _bot.Client.SendTextMessageAsync(message.Chat.Id, "Subs should be done in private chat");
                 return;

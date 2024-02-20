@@ -39,23 +39,6 @@ namespace CiviBotti
 
         #region public functions
 
-        public void SetChatAction(long chatId, ChatAction action)
-        {
-            try
-            {
-                Client.SendChatActionAsync(chatId, action);
-            }
-            catch (ApiRequestException ex)
-            {
-                Console.WriteLine("BotSendText:\n" + ex);
-            }
-        }
-
-        public ChatMember[] GetAdministrators(long chatId)
-        {
-            return Client.GetChatAdministratorsAsync(chatId).Result;
-        }
-
         public async Task<Chat> GetChat(long userId) {
             return await Client.GetChatAsync(userId);
         }
