@@ -17,12 +17,12 @@ namespace CiviBotti {
             Users.Add(this);
         }
 
-        public bool InsertDatabase(bool open) {
+        public bool InsertDatabase(Database db) {
             var result = false;
 
             var sql = $"INSERT INTO users (id, steamid, authkey) values ({Id}, '{SteamId}', '{AuthKey}')";
             Console.WriteLine(sql);
-            var rows = SubProgram.Database.ExecuteNonQuery(sql);
+            var rows = db.ExecuteNonQuery(sql);
 
             if (rows == 1) {
                 result = true;
@@ -31,21 +31,21 @@ namespace CiviBotti {
             return result;
         }
 
-        public static bool CheckDatabase(long id) {
+        public static bool CheckDatabase(Database db, long id) {
             var sql = $"SELECT * FROM users WHERE id = {id}";
-            var reader = SubProgram.Database.ExecuteReader(sql);
+            var reader = db.ExecuteReader(sql);
             var result = reader.HasRows;
             reader.Close();
             return result;
         }
 
-        public static UserData? Get(long id) {
+        public static UserData? Get(Database db, long id) {
             var check = Users.Find(cachedUser => cachedUser.Id == id);
             if (check != null) return check;
 
             var sql = $"SELECT * FROM users WHERE id = {id}";
             Console.WriteLine(sql);
-            var reader = SubProgram.Database.ExecuteReader(sql);
+            var reader = db.ExecuteReader(sql);
 
 
             UserData user;
@@ -61,13 +61,13 @@ namespace CiviBotti {
             }
 
             reader.Close();
-            user.Subs = SubData.Get(user.Id);
+            user.Subs = SubData.Get(db, user.Id);
             return user;
         }
         
-        public static UserData GetBySteamId(string steamid) {
-            var sql = $"SELECT * FROM users WHERE steamid = '{steamid}'";
-            var reader = SubProgram.Database.ExecuteReader(sql);
+        public static UserData GetBySteamId(Database db, string steamId) {
+            var sql = $"SELECT * FROM users WHERE steamid = '{steamId}'";
+            var reader = db.ExecuteReader(sql);
 
 
             UserData user = null;
@@ -87,7 +87,7 @@ namespace CiviBotti {
             reader.Close();
             if (user != null)
             {
-                user.Subs = SubData.Get(user.Id);
+                user.Subs = SubData.Get(db, user.Id);
             }
             return user;
         }

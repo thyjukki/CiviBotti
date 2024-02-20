@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 namespace CiviBotti {
     using System.Globalization;
+    using System.Linq;
 
     public class GameData {
         public long GameId { get; init;}
@@ -20,72 +21,48 @@ namespace CiviBotti {
         public string Name { get; set; } = "";
         public string TurnId { get; set; } = "";
 
-        public bool InsertDatabase() {
+        private void InsertDatabase(Database db) {
             var sql = $"INSERT INTO games (gameid, ownerid, name, currentp, notified, turnid, enableDailyNotified, dailyNotified) values ({GameId}, {Owner.Id}, '{Name}', {CurrentPlayer.SteamId}, '{(TurntimerNotified ? 1 : 0)}', '{TurnId}', '{(EnableDailyNotified ? 1 : 0)}', '{(DailyNotified ? 1 : 0)}')";
             Console.WriteLine(sql);
-            var rows = SubProgram.Database.ExecuteNonQuery(sql);
-
-            return rows == 1;
+            db.ExecuteNonQuery(sql);
         }
 
 
-        public bool UpdateCurrent() {
+        public void UpdateCurrent(Database db) {
             var sql = $"UPDATE games SET currentp = {CurrentPlayer.SteamId}, notified = {(TurntimerNotified ? 1 : 0)}, turnid = '{TurnId}', enableDailyNotified = {(EnableDailyNotified ? 1 : 0)}, dailyNotified = {(DailyNotified ? 1 : 0)} WHERE gameid = {GameId}";
 
             Console.WriteLine(sql);
-            var rows = SubProgram.Database.ExecuteNonQuery(sql);
-
-            return rows == 1;
+            db.ExecuteNonQuery(sql);
         }
 
-        public void InsertDatabasePlayers() {
-            if (Players == null) {
-                return;
-            }
+        private void InsertDatabasePlayers(Database db) {
             foreach (var player in Players) {
-                player.InsertDatabase();
+                player.InsertDatabase(db);
             }
         }
 
-        public void InsertChats() {
-            if (Chats == null) {
-                return;
-            }
-
-            foreach (var chat in Chats) {
-                var sql = $"INSERT INTO gamechats (gameid, chatid) values ({GameId}, {chat})";
+        private void InsertChats(Database db) {
+            foreach (var sql in Chats.Select(chat => $"INSERT INTO gamechats (gameid, chatid) values ({GameId}, {chat})")) {
                 Console.WriteLine(sql);
-                SubProgram.Database.ExecuteNonQuery(sql);
+                db.ExecuteNonQuery(sql);
             }
         }
 
-        public void InsertChat(long chatId) {
-            if (Chats == null) {
-                return;
-            }
-     
+        public void InsertChat(Database db, long chatId) {
             var sql = $"INSERT INTO gamechats (gameid, chatid) values ({GameId}, {chatId})";
             Console.WriteLine(sql);
-            SubProgram.Database.ExecuteNonQuery(sql);
+            db.ExecuteNonQuery(sql);
         }
 
-        public void InsertFull() {
-            InsertDatabase();
-            InsertDatabasePlayers();
-            InsertChats();
+        public void InsertFull(Database db) {
+            InsertDatabase(db);
+            InsertDatabasePlayers(db);
+            InsertChats(db);
         }
 
-        public static bool CheckDatabase(long gameId) {
-            var sql = $"SELECT * FROM games WHERE gameid = {gameId}";
-            var reader = SubProgram.Database.ExecuteReader(sql);
-            var result = reader.HasRows;
-            reader.Close();
-            return result;
-        }
-
-        public static List<GameData> GetAllGames() {
+        public static List<GameData> GetAllGames(Database db) {
             const string sql = "SELECT * FROM games";
-            var reader = SubProgram.Database.ExecuteReader(sql);
+            var reader = db.ExecuteReader(sql);
 
             var collection = new List<GameData>();
             while (reader.Read()) {
@@ -113,11 +90,11 @@ namespace CiviBotti {
             return collection;
         }
 
-        public void GetGameData() {
+        public void GetGameData(Database db) {
 
 
             var sql2 = $"SELECT * FROM players WHERE gameid = {GameId}";
-            var reader2 = SubProgram.Database.ExecuteReader(sql2);
+            var reader2 = db.ExecuteReader(sql2);
             while (reader2.Read()) {
                 var dateString = reader2.GetString(3);
                 DateTime.TryParse(dateString, DateTimeFormatInfo.CurrentInfo, DateTimeStyles.AssumeLocal, out var nextEta);
@@ -133,7 +110,7 @@ namespace CiviBotti {
             reader2.Close();
 
             foreach (var player in Players) {
-                player.User = UserData.GetBySteamId(player.SteamId);
+                player.User = UserData.GetBySteamId(db, player.SteamId);
                 if (player.User?.Id == _ownerRaw) {
                     Owner = player.User;
                 }
@@ -141,17 +118,17 @@ namespace CiviBotti {
 
 
             var sql3 = $"SELECT chatid FROM gamechats WHERE gameid = {GameId}";
-            var reader3 = SubProgram.Database.ExecuteReader(sql3);
+            var reader3 = db.ExecuteReader(sql3);
             while (reader3.Read()) {
                 Chats.Add(reader3.GetInt64(0));
             }
             reader3.Close();
         }
 
-        public void RemoveChat(long id) {
+        public void RemoveChat(Database db, long id) {
             var sql = $"DELETE FROM gamechats WHERE gameid = {GameId} AND chatid = {id}";
             Console.WriteLine(sql);
-            SubProgram.Database.ExecuteNonQuery(sql);
+            db.ExecuteNonQuery(sql);
         }
 
         public override string ToString() => $"{Name} ({GameId})";

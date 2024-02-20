@@ -40,20 +40,20 @@ namespace CiviBotti
             }
         }
 
-        public void InsertDatabase()
+        public void InsertDatabase(Database db)
         {
             var sql = $"INSERT INTO players (gameid, steamid, turnorder, nexteta) values ({_gameId}, {SteamId}, {TurnOrder}, '{NextEta}')";
 
             Console.WriteLine(sql);
-            SubProgram.Database.ExecuteNonQuery(sql);
+            db.ExecuteNonQuery(sql);
         }
 
-        public void UpdateDatabase()
+        public void UpdateDatabase(Database db)
         {
             var sql = $"UPDATE players SET turnorder = {TurnOrder}, nexteta = '{NextEta}' WHERE gameid = {_gameId} AND steamId = {SteamId}";
 
             Console.WriteLine(sql);
-            SubProgram.Database.ExecuteNonQuery(sql);
+            db.ExecuteNonQuery(sql);
         }
 
         public override string ToString() => $"Player: {Name}";

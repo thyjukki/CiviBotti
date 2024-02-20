@@ -17,17 +17,17 @@ namespace CiviBotti
             Game = game;
         }
 
-        public void InsertDatabase()
+        public void InsertDatabase(Database db)
         {
             var sql = $"INSERT INTO subs (gameid, id, subid, times) values ({Game.GameId}, '{Id}', '{SubId}', '{Times}')";
             Console.WriteLine(sql);
-            SubProgram.Database.ExecuteNonQuery(sql);
+            db.ExecuteNonQuery(sql);
         }
 
-        public static List<SubData> Get(long id) {
+        public static List<SubData> Get(Database db, long id) {
             var sql = $"SELECT * FROM subs WHERE id = {id}";
             Console.WriteLine(sql);
-            var reader = SubProgram.Database.ExecuteReader(sql);
+            var reader = db.ExecuteReader(sql);
 
 
             var collection = new List<SubData>();
@@ -49,10 +49,10 @@ namespace CiviBotti
             return collection;
         }
 
-        public void RemoveSub() {
+        public void RemoveSub(Database db) {
             var sql = $"DELETE FROM subs WHERE gameid = {Game.GameId} AND id = {Id} AND subid = {SubId}";
             Console.WriteLine(sql);
-            SubProgram.Database.ExecuteNonQuery(sql);
+            db.ExecuteNonQuery(sql);
         }
     }
 }

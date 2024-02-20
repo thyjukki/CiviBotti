@@ -1,14 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using Microsoft.Extensions.Configuration;
 using Telegram.Bot;
 using Telegram.Bot.Args;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
-using Telegram.Bot.Types.ReplyMarkups;
-using File = Telegram.Bot.Types.File;
 
 namespace CiviBotti
 {
@@ -17,58 +13,37 @@ namespace CiviBotti
 
     public class TelegramBot
     {
+        public delegate void CommandReceivedHandler(string command, Message message);
+        public event CommandReceivedHandler? CommandReceived;
+        
         private readonly List<ChatCallback> _replyCallbacks = new ();
 
         #region variables
-        public readonly TelegramBotClient bot;
+        public readonly TelegramBotClient Client;
 
-        public string TechnicalName { get; }
+        private string TechnicalName { get; }
         #endregion
 
         #region constructors
         public TelegramBot(string token) {
-            bot = new TelegramBotClient(token);//Test
-            bot.OnCallbackQuery += BotOnCallbackQueryReceived;
-            bot.OnMessage += BotOnMessageReceived;
-            bot.OnReceiveError += BotOnReceiveError;
+            Client = new TelegramBotClient(token);//Test
+            Client.OnCallbackQuery += BotOnCallbackQueryReceived;
+            Client.OnMessage += BotOnMessageReceived;
+            Client.OnReceiveError += BotOnReceiveError;
 
-            TechnicalName = bot.GetMeAsync().Result.Username;
+            TechnicalName = Client.GetMeAsync().Result.Username;
         }
 
 
         #endregion
 
         #region public functions
-        public void StartReceiving()
-        {
-            bot.StartReceiving();
-        }
-
-        public void StopReceiving()
-        {
-            bot.StopReceiving();
-        }
-
-        public void SendText(long chat, string msg, IReplyMarkup replyMarkup = null) {
-            try
-            {
-                bot.SendTextMessageAsync(chat, msg, replyMarkup: replyMarkup);
-            }
-            catch (ApiRequestException ex)
-            {
-                Console.WriteLine("BotSendText:\n" + ex);
-            }
-        }
-
-        public void SendText(Chat chat, string msg, IReplyMarkup replyMarkup = null) {
-            SendText(chat.Id, msg, replyMarkup);
-        }
 
         public void SetChatAction(long chatId, ChatAction action)
         {
             try
             {
-                bot.SendChatActionAsync(chatId, action);
+                Client.SendChatActionAsync(chatId, action);
             }
             catch (ApiRequestException ex)
             {
@@ -78,27 +53,27 @@ namespace CiviBotti
 
         public ChatMember[] GetAdministrators(long chatId)
         {
-            return bot.GetChatAdministratorsAsync(chatId).Result;
+            return Client.GetChatAdministratorsAsync(chatId).Result;
         }
 
         public async Task<Chat> GetChat(long userId) {
-            return await bot.GetChatAsync(userId);
+            return await Client.GetChatAsync(userId);
         }
 
         public Message SendVoice(long chatId, InputOnlineFile file)
         {
-            return bot.SendVoiceAsync(chatId, file).Result;
+            return Client.SendVoiceAsync(chatId, file).Result;
         }
 
         public Message SendFile(long chatId, InputOnlineFile file)
         {
-            return bot.SendDocumentAsync(chatId, file).Result;
+            return Client.SendDocumentAsync(chatId, file).Result;
         }
 
         public void AddReplyGet(int user, long chat, Action<Message> callback)
         {
 
-            var chatCb = _replyCallbacks.Find(_ => _.User == user && _.Chat == chat);
+            var chatCb = _replyCallbacks.Find(c => c.User == user && c.Chat == chat);
             if (chatCb != null)
             {
                 Console.WriteLine("ERROR: 2 callbacks for user, removing old!!");
@@ -116,16 +91,16 @@ namespace CiviBotti
         #region Callbacks
 
 
-        private void BotOnReceiveError(object sender, ReceiveErrorEventArgs receiveErrorEventArgs) {
+        private void BotOnReceiveError(object? sender, ReceiveErrorEventArgs receiveErrorEventArgs) {
             Console.WriteLine("BotOnReceiveError:\n" + receiveErrorEventArgs.ApiRequestException.Message);
         }
 
-        private void BotOnCallbackQueryReceived(object sender, CallbackQueryEventArgs callbackQueryEventArgs) {
-            bot.AnswerCallbackQueryAsync(callbackQueryEventArgs.CallbackQuery.Id, $"Received {callbackQueryEventArgs.CallbackQuery.Data}");
+        private void BotOnCallbackQueryReceived(object? sender, CallbackQueryEventArgs callbackQueryEventArgs) {
+            Client.AnswerCallbackQueryAsync(callbackQueryEventArgs.CallbackQuery.Id, $"Received {callbackQueryEventArgs.CallbackQuery.Data}");
         }
 
 
-        private async void BotOnMessageReceived(object sender, MessageEventArgs messageEventArgs) {
+        private async void BotOnMessageReceived(object? sender, MessageEventArgs messageEventArgs) {
             var message = messageEventArgs.Message;
 
 
@@ -134,16 +109,16 @@ namespace CiviBotti
             var chatCb = _replyCallbacks.Find(rbc => rbc.User == userId && rbc.Chat == message.Chat.Id);
             if (chatCb != null) {
                 _replyCallbacks.Remove(chatCb);
-                chatCb.Callback?.Invoke(message);
+                chatCb.Callback.Invoke(message);
                 return;
             }
 
             if (message.Type != MessageType.Text) return;
-            var groupstring = "";
+            var groupString = "";
 
-            if (message.Chat.Type != ChatType.Private) groupstring = $" ({message.Chat.Username})";
-            var user = await bot.GetChatAsync(userId);
-            Console.WriteLine($@"{DateTime.Now:MM\/dd\/yyyy HH:mm} [{user.Username}]{groupstring} {message.Text}");
+            if (message.Chat.Type != ChatType.Private) groupString = $" ({message.Chat.Username})";
+            var user = await Client.GetChatAsync(userId);
+            Console.WriteLine($@"{DateTime.Now:MM\/dd\/yyyy HH:mm} [{user.Username}]{groupString} {message.Text}");
 
 
             if (!message.Text.StartsWith("/")) return;
@@ -151,7 +126,7 @@ namespace CiviBotti
             var commandSplit = message.Text.Split(' ')[0].Split('@');
             if (commandSplit.Length == 2 && !string.Equals(commandSplit[1], TechnicalName, StringComparison.OrdinalIgnoreCase)) return;
             var command = commandSplit[0].Split('/')[1];
-            await SubProgram.ParseCommand(command, message);
+            CommandReceived?.Invoke(command, message);
         }
 
         #endregion
