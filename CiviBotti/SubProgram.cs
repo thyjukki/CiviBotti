@@ -964,13 +964,13 @@ namespace CiviBotti
 
         private async Task GetOtherPlayerEta(Message message, GameData selectedGame, PlayerData player) {
             var stringBuilder = new StringBuilder();
-            stringBuilder.Append($"{player.NameTag} ");
+            stringBuilder.Append($"{player.Name} ");
             TimeSpan diff;
 
             if (player.NextEta < DateTime.Now) {
                 var turnTimer = GetTurntimer(selectedGame, player);
                 if (!turnTimer.HasValue) {
-                    await _bot.Client.SendTextMessageAsync(message.Chat.Id, $"Uusi turntimer tulossa! {player.NameTag}");
+                    await _bot.Client.SendTextMessageAsync(message.Chat.Id, $"Uusi turntimer tulossa! {player.Name}");
                     return;
                 }
 
