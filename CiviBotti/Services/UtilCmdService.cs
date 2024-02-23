@@ -20,7 +20,7 @@ public class UtilCmdService
 
     public async Task Order(Message message, Chat chat, CancellationToken ct) {
         await _botClient.SendChatActionAsync(chat.Id, ChatAction.Typing, cancellationToken: ct);
-        var selectedGame = _gameContainer.Games.FirstOrDefault(game => game.Chats.Any(chatId => chatId == chat.Id));
+        var selectedGame = _gameContainer.Games.FirstOrDefault(game => game.Chats.Exists(chatId => chatId == chat.Id));
         if (selectedGame == null) {
             await _botClient.SendTextMessageAsync(chat, "No game added to this chat", cancellationToken: ct);
             return;
@@ -35,7 +35,7 @@ public class UtilCmdService
     
     public async Task Next(Message message, Chat chat, CancellationToken ct) {
         await _botClient.SendChatActionAsync(chat.Id, ChatAction.Typing, cancellationToken: ct);
-        var selectedGame = _gameContainer.Games.FirstOrDefault(game => game.Chats.Any(chatId => chatId == chat.Id));
+        var selectedGame = _gameContainer.Games.FirstOrDefault(game => game.Chats.Exists(chatId => chatId == chat.Id));
         if (selectedGame == null) {
             await _botClient.SendTextMessageAsync(chat, "No game added to this chat", cancellationToken: ct);
             return;

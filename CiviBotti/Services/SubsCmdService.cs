@@ -149,7 +149,7 @@ public class SubsCmdService
         }
         
 
-        var sub = user.Subs.FirstOrDefault(sub => sub.SubId == subId && sub.GameId == gameId);
+        var sub = user.Subs.Find(sub => sub.SubId == subId && sub.GameId == gameId);
         
         if (sub == null) {
             await _botClient.SendTextMessageAsync(message.Chat.Id, "Unknown sub", replyMarkup: new ReplyKeyboardRemove(), cancellationToken: cancellationToken);
@@ -202,7 +202,7 @@ public class SubsCmdService
             return;
         }
 
-        var selectedUser = selectedGame.Players.FirstOrDefault(playerData => playerData.User != null && playerData.User.Id == userId)?.User;
+        var selectedUser = selectedGame.Players.Find(playerData => playerData.User != null && playerData.User.Id == userId)?.User;
 
         if (selectedUser == null) {
             await _botClient.SendTextMessageAsync(message.Chat.Id, "Unknown user", replyMarkup: new ReplyKeyboardRemove(), cancellationToken: cancellationToken);

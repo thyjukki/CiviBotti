@@ -39,7 +39,7 @@ public class TurntimeCmdServices
 
     public async Task Tee(Message message, Chat chat, CancellationToken ct) {
         await _botClient.SendChatActionAsync(chat.Id, ChatAction.RecordVoice, cancellationToken: ct);
-        var selectedGame = _gameContainer.Games.FirstOrDefault(g => g.Chats.Any(chatId => chatId == chat.Id));
+        var selectedGame = _gameContainer.Games.FirstOrDefault(g => g.Chats.Exists(chatId => chatId == chat.Id));
 
         if (selectedGame == null) {
             await _botClient.SendTextMessageAsync(message.Chat.Id, "No game added to this group!", cancellationToken: ct);
@@ -107,7 +107,7 @@ public class TurntimeCmdServices
     public async Task Eta(Message message, Chat chat, CancellationToken ct) {
         await _botClient.SendChatActionAsync(chat.Id, ChatAction.Typing, cancellationToken: ct);
 
-        var selectedGame = _gameContainer.Games.FirstOrDefault(g => g.Chats.Any(chatId => chatId == chat.Id));
+        var selectedGame = _gameContainer.Games.FirstOrDefault(g => g.Chats.Exists(chatId => chatId == chat.Id));
 
         if (selectedGame == null) {
             await _botClient.SendTextMessageAsync(message.Chat.Id, "No game added to this group!", cancellationToken: ct);
@@ -171,7 +171,7 @@ public class TurntimeCmdServices
     
     public async Task Turntimers(Chat chat, bool onlyCurrent, CancellationToken ct) {
         await _botClient.SendChatActionAsync(chat.Id, ChatAction.Typing, cancellationToken: ct);
-        var selectedGame = _gameContainer.Games.FirstOrDefault(game => game.Chats.Any(chatId => chatId == chat.Id));
+        var selectedGame = _gameContainer.Games.FirstOrDefault(game => game.Chats.Exists(chatId => chatId == chat.Id));
         if (selectedGame == null) {
             await _botClient.SendTextMessageAsync(chat, "No game added to this chat", cancellationToken: ct);
             return;
@@ -189,7 +189,7 @@ public class TurntimeCmdServices
         var sortedDict = from entry in turntimers orderby entry.Value ascending select entry;
 
         foreach (var (steamId, timer) in sortedDict) {
-            var player = selectedGame.Players.FirstOrDefault(p => p.SteamId == steamId);
+            var player = selectedGame.Players.Find(p => p.SteamId == steamId);
             
             if (player == null) {
                 _logger.LogWarning("Player not found: {SteamId} in game {SelectedGameGameId}", steamId, selectedGame.GameId);

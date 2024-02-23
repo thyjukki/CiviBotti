@@ -68,7 +68,7 @@ public class UpdateHandler : IUpdateHandler
         if (message.Chat is not { } chat)
             return;
 
-        var action = message.Text.Split('@').First().Split(' ').First() switch
+        var action = message.Text.Split('@')[0].Split(' ')[0] switch
         {
             "/newgame" => _gameAdminCmdService.NewGame(message, chat, cancellationToken),
             "/register" => _gameAdminCmdService.RegisterGame(message, chat, cancellationToken),

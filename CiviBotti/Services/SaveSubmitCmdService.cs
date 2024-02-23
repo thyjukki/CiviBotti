@@ -63,7 +63,7 @@ public class SaveSubmitCmdService
             return;
         }
         
-        var selectedPlayer = selectedGame.Players.FirstOrDefault(player => player.User!.Id == selectedUserId);
+        var selectedPlayer = selectedGame.Players.Find(player => player.User!.Id == selectedUserId);
 
         if (selectedPlayer?.User == null) {
             await _botClient.SendTextMessageAsync(message.Chat.Id, "Player not found", replyMarkup: new ReplyKeyboardRemove(), cancellationToken: cancellationToken);
@@ -87,8 +87,9 @@ public class SaveSubmitCmdService
         if (message.ReplyToMessage.Text == null || !message.ReplyToMessage.Text.Contains("Upload the file")) {
             return;
         }
+        
 
-        if (!long.TryParse(message.ReplyToMessage.Text.Split("\n").Last().Split(":").Last(), out var gameId)) {
+        if (!long.TryParse(message.ReplyToMessage.Text.Split("\n")[^1].Split(":")[^1], out var gameId)) {
             return;
         }
         

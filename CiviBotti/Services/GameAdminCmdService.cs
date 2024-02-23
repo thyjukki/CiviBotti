@@ -90,7 +90,7 @@ public class GameAdminCmdService
 
         
         var newGame = new GameData(gameId, owner, data.Name,
-            currentPlayer ?? players.First(), true, false);
+            currentPlayer ?? players[0], true, false);
         newGame.Players.Clear();
         newGame.Players.AddRange(players);
         newGame.TurnStarted = data.CurrentTurn.Started;
@@ -190,7 +190,7 @@ public class GameAdminCmdService
                 return;
             }
             
-            if (selectedGame.Chats.Any(chatId => chatId == chat.Id)) {
+            if (selectedGame.Chats.Exists(chatId => chatId == chat.Id)) {
                 await _botClient.SendTextMessageAsync(message.Chat, "Channel already has a game!", cancellationToken: ct);
                 return;
             }
@@ -217,7 +217,7 @@ public class GameAdminCmdService
                 }
             }
 
-            var selectedGame = _gameContainer.Games.FirstOrDefault(game => game.Chats.Any(chatid => chatid == chat.Id));
+            var selectedGame = _gameContainer.Games.FirstOrDefault(game => game.Chats.Exists(chatid => chatid == chat.Id));
 
             if (selectedGame == null) {
                 await _botClient.SendTextMessageAsync(message.Chat.Id, "No game added to this group!", cancellationToken: ct);

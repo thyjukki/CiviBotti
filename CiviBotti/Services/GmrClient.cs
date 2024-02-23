@@ -36,7 +36,7 @@ public class GmrClient
         
         var result = JsonConvert.DeserializeObject<PackagedGameContainer>(data);
         
-        return result?.Games.FirstOrDefault(item => item.GameId == gameId);
+        return result?.Games.Find(item => item.GameId == gameId);
     }
 
     public async Task<string> GetPlayerIdFromAuthKey(string authKey) {

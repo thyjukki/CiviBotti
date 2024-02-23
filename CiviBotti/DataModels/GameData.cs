@@ -113,7 +113,7 @@ public class GameData {
                 continue;
             }
 
-            var currentPlayer = players.FirstOrDefault(p => p.SteamId == currentPlayerSteamId);
+            var currentPlayer = players.Find(p => p.SteamId == currentPlayerSteamId);
             if (currentPlayer == null) {
                 throw new MalformedDatabaseException("Current player not found");
             }
