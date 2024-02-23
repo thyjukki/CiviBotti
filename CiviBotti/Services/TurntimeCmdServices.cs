@@ -262,7 +262,7 @@ public class TurntimeCmdServices
         await _botClient.SendTextMessageAsync(message.Chat.Id, stringBuilder.ToString(), cancellationToken: ct);
     }
     
-    private bool ParseTime(IReadOnlyList<string> args, out int hour, ref int minute, ref int day) {
+    private static bool ParseTime(IReadOnlyList<string> args, out int hour, ref int minute, ref int day) {
         var hoursMins = args[1].Split(':');
         if (!int.TryParse(hoursMins[0], out hour)) {
             return false;
