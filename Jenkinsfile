@@ -9,7 +9,7 @@ pipeline {
         stage('SonarQube') {
             agent {
                 docker {
-                    image 'ghcr.io/nosinovacao/dotnet-sonar:latest6'
+                    image 'ghcr.io/nosinovacao/dotnet-sonar:latest7'
                 }
             }
             steps {

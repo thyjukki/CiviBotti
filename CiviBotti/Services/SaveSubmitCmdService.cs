@@ -88,7 +88,7 @@ public class SaveSubmitCmdService
             return;
         }
 
-        if (!long.TryParse(message.ReplyToMessage.Text.Split("\n")[-1].Split(":")[-1], out var gameId)) {
+        if (!long.TryParse(message.ReplyToMessage.Text.Split("\n").Last().Split(":").Last(), out var gameId)) {
             return;
         }
         
