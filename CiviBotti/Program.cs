@@ -17,10 +17,10 @@ var host = Host.CreateDefaultBuilder(args).ConfigureLogging(logging =>
         logging.AddConsole();
     }).ConfigureAppConfiguration((context, config) =>
     {
+        var enviroment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
         config.SetBasePath(Environment.CurrentDirectory);
         config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
-        config.AddJsonFile($"appsettings.{context.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true);
-        config.AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: true);
+        config.AddJsonFile($"appsettings.{enviroment}.json", optional: true, reloadOnChange: true);
         config.AddEnvironmentVariables();
     })
     .ConfigureServices((context, services) => {

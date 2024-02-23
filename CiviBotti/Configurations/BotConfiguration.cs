@@ -32,7 +32,7 @@ public class BotConfiguration
     [ConfigurationKeyName("DB_PW")]  
     public required string Password { get; set; }
     
-    [ConfigurationKeyName("DB_NAME")]  
+    [ConfigurationKeyName("DB_DATABASE")]  
     public required string Database { get; set; }
     
     [ConfigurationKeyName("STEAM_API_URL")] 
