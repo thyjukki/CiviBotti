@@ -247,3 +247,5 @@ ModelManifest.xml
 CiviBotti/bot\.config
 
 .idea/
+
+appsettings.Development.json
