@@ -100,11 +100,17 @@ public class GamePollingService : BackgroundService
             throw new ArgumentNullException($"Player {currentPlayerId} not found in database!");
         }
         
-        game.CurrentPlayer.UpdateDatabase(_database);
+        var oldPlayer = game.CurrentPlayer;
+        
+        oldPlayer.NextEta = DateTime.MinValue;
+        oldPlayer.UpdateDatabase(_database);
+        
         game.CurrentPlayer = player;
         game.TurntimerNotified = false;
         game.TurnStarted = DateTime.Now;
+        game.CurrentPlayer.NextEta = DateTime.MinValue;
         game.TurnId = current.TurnId.ToString();
+        game.CurrentPlayer.UpdateDatabase(_database);
         game.UpdateCurrent(_database);
 
         player.SteamName = await _steamClient.GetSteamUserName(player.SteamId);
