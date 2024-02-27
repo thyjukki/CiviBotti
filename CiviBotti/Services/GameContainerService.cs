@@ -22,7 +22,7 @@ public class GameContainerService(
         return (from game in Games from chat in game.Chats where chat == chatId select game).FirstOrDefault();
     }
 
-    private async Task InitializePlayersForGame(GameData game, IReadOnlyDictionary<string, string> playerSteamNames) {
+    private async Task InitializePlayersForGame(GameData game, Dictionary<string, string> playerSteamNames) {
         var ownerName = playerSteamNames.GetValueOrDefault(game.Owner.SteamId, game.Owner.SteamId);
         logger.LogInformation("{Game} {GameOwner}", game, ownerName);
         logger.LogInformation(" chats:");
