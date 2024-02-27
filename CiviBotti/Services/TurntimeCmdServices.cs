@@ -32,8 +32,7 @@ public class TurntimeCmdServices
         _logger = logger;
         _gmrClient = gmrClient;
         _database = database;
-        var config = configuration.Value;
-        _speechConfig = SpeechConfig.FromSubscription(config.SpeechKey, config.SpeechRegion);
+        _speechConfig = SpeechConfig.FromSubscription(configuration.Value.SpeechKey, configuration.Value.SpeechRegion);
         _speechConfig.SpeechSynthesisVoiceName = "fi-FI-NooraNeural";
     }
 

@@ -1,5 +1,4 @@
 ﻿using System;
-using CiviBotti;
 using CiviBotti.Configurations;
 using CiviBotti.Services;
 using Microsoft.Extensions.Configuration;
@@ -15,7 +14,7 @@ var host = Host.CreateDefaultBuilder(args).ConfigureLogging(logging =>
     {
         logging.ClearProviders();
         logging.AddConsole();
-    }).ConfigureAppConfiguration((context, config) =>
+    }).ConfigureAppConfiguration((_, config) =>
     {
         var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
         config.SetBasePath(Environment.CurrentDirectory);

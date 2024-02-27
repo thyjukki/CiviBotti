@@ -1,7 +1,6 @@
-﻿namespace CiviBotti.DataModels.Gmr;
+﻿using Newtonsoft.Json;
 
-using System.Collections.Generic;
-using Newtonsoft.Json;
+namespace GmrData.Gmr;
 
 public class PackagedGame
 {

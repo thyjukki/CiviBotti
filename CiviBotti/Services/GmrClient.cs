@@ -1,4 +1,6 @@
-﻿namespace CiviBotti.Services;
+﻿using GmrData.Gmr;
+
+namespace CiviBotti.Services;
 
 using System;
 using System.Collections.Generic;
@@ -10,27 +12,23 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Configurations;
 using DataModels;
-using DataModels.Gmr;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 
-public class GmrClient
+public class GmrClient(
+    HttpClient httpClient,
+    IOptions
+        <BotConfiguration> botConfigGmrUrl)
 {
-    private readonly HttpClient _httpClient;
-    private readonly string _gmrUrl;
-    public GmrClient(HttpClient httpClient, IOptions
-        <BotConfiguration> botConfigGmrUrl) {
-        _httpClient = httpClient;
-        _gmrUrl = botConfigGmrUrl.Value.GmrUrl;
-    }
+    private readonly string _gmrUrl = botConfigGmrUrl.Value.GmrUrl;
 
     public async Task<PackagedGame?> GetGameData(long gameId, UserData owner) {
         var url =
             $"{_gmrUrl}api/Diplomacy/GetGamesAndPlayers?playerIDText={owner.SteamId}&authKey={owner.AuthKey}";
 
 
-        var request = await _httpClient.GetAsync(url);
+        var request = await httpClient.GetAsync(url);
         var data = await request.Content.ReadAsStringAsync();
 
         
@@ -42,7 +40,7 @@ public class GmrClient
     public async Task<string> GetPlayerIdFromAuthKey(string authKey) {
         var url = $"{_gmrUrl}api/Diplomacy/AuthenticateUser?authKey={authKey}";
 
-        var request = await _httpClient.GetAsync(url);
+        var request = await httpClient.GetAsync(url);
         var html = await request.Content.ReadAsStringAsync();
 
         return html;
@@ -59,7 +57,7 @@ public class GmrClient
 
     public async Task<Dictionary<string, TimeSpan>?> GetTurntimers(GameData selectedGame) {
         var url = $"{_gmrUrl}Game/Details?id={selectedGame.GameId}";
-        var response = await _httpClient.PostAsync(url, null);
+        var response = await httpClient.PostAsync(url, null);
         if (!response.IsSuccessStatusCode) {
             return null;
         }
@@ -115,11 +113,11 @@ public class GmrClient
                 { new StringContent(user.AuthKey), "authKey" },
                 { new StreamContent(ms), "saveFileUpload", $"{game.TurnId}.Civ5Save" }
             };
-        return await _httpClient.PostAsync($"{_gmrUrl}Game/UploadSaveClient",  form);
+        return await httpClient.PostAsync($"{_gmrUrl}Game/UploadSaveClient",  form);
     }
 
     public async Task<Stream?> DownloadSave(GameData game, UserData user) {
-        var response = await _httpClient.GetAsync($"{_gmrUrl}api/Diplomacy/GetLatestSaveFileBytes?authKey={user.AuthKey}&gameId={game.GameId}");
+        var response = await httpClient.GetAsync($"{_gmrUrl}api/Diplomacy/GetLatestSaveFileBytes?authKey={user.AuthKey}&gameId={game.GameId}");
         
         if (!response.IsSuccessStatusCode) return null;
 

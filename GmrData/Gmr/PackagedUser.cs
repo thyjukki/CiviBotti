@@ -1,6 +1,6 @@
-﻿namespace CiviBotti.DataModels.Gmr;
+﻿using Newtonsoft.Json;
 
-using Newtonsoft.Json;
+namespace GmrData.Gmr;
 
 public class PackagedUser
 {

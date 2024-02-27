@@ -8,21 +8,13 @@ using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 
-public class UtilCmdService
+public class UtilCmdService(ITelegramBotClient botClient, GameContainerService gameContainer)
 {
-    private readonly ITelegramBotClient _botClient;
-    private readonly GameContainerService _gameContainer;
-
-    public UtilCmdService(ITelegramBotClient botClient, GameContainerService gameContainer) {
-        _botClient = botClient;
-        _gameContainer = gameContainer;
-    }
-
     public async Task Order(Message message, Chat chat, CancellationToken ct) {
-        await _botClient.SendChatActionAsync(chat.Id, ChatAction.Typing, cancellationToken: ct);
-        var selectedGame = _gameContainer.Games.FirstOrDefault(game => game.Chats.Exists(chatId => chatId == chat.Id));
+        await botClient.SendChatActionAsync(chat.Id, ChatAction.Typing, cancellationToken: ct);
+        var selectedGame = gameContainer.Games.FirstOrDefault(game => game.Chats.Exists(chatId => chatId == chat.Id));
         if (selectedGame == null) {
-            await _botClient.SendTextMessageAsync(chat, "No game added to this chat", cancellationToken: ct);
+            await botClient.SendTextMessageAsync(chat, "No game added to this chat", cancellationToken: ct);
             return;
         }
 
@@ -30,20 +22,20 @@ public class UtilCmdService
         var result = new StringBuilder();
         orders.ForEach(player => result.Append($"\n{player.Name}"));
 
-        await _botClient.SendTextMessageAsync(message.Chat.Id, $"Order is:{result}", cancellationToken: ct);
+        await botClient.SendTextMessageAsync(message.Chat.Id, $"Order is:{result}", cancellationToken: ct);
     }
     
     public async Task Next(Message message, Chat chat, CancellationToken ct) {
-        await _botClient.SendChatActionAsync(chat.Id, ChatAction.Typing, cancellationToken: ct);
-        var selectedGame = _gameContainer.Games.FirstOrDefault(game => game.Chats.Exists(chatId => chatId == chat.Id));
+        await botClient.SendChatActionAsync(chat.Id, ChatAction.Typing, cancellationToken: ct);
+        var selectedGame = gameContainer.Games.FirstOrDefault(game => game.Chats.Exists(chatId => chatId == chat.Id));
         if (selectedGame == null) {
-            await _botClient.SendTextMessageAsync(chat, "No game added to this chat", cancellationToken: ct);
+            await botClient.SendTextMessageAsync(chat, "No game added to this chat", cancellationToken: ct);
             return;
         }
             
         //Get the next player in list from ascending looping TurnOrder
         var player = selectedGame.Players.OrderBy(x => x.TurnOrder).ToList()[(selectedGame.CurrentPlayer.TurnOrder + 1) % selectedGame.Players.Count];
-        await _botClient.SendTextMessageAsync(message.Chat.Id, $"Next player is: {player.Name}", cancellationToken: ct);
+        await botClient.SendTextMessageAsync(message.Chat.Id, $"Next player is: {player.Name}", cancellationToken: ct);
     }
 
     public async Task Help(Message message, Chat chat, CancellationToken ct) {
@@ -57,9 +49,9 @@ public class UtilCmdService
 /removegame - Remove assigned game from chat";
         }
         else {
-            var game = _gameContainer.GetGameFromChat(message.Chat.Id);
+            var game = gameContainer.GetGameFromChat(message.Chat.Id);
 
-            var admins = await _botClient.GetChatAdministratorsAsync(chat.Id, cancellationToken: ct);
+            var admins = await botClient.GetChatAdministratorsAsync(chat.Id, cancellationToken: ct);
                 
             if (admins.Select(admin => admin.User.Id).Contains(message.From!.Id)) {
                 usage = game != null ? @"CiviBotti:
@@ -77,6 +69,6 @@ public class UtilCmdService
             }
         }
 
-        await _botClient.SendTextMessageAsync(message.Chat.Id, usage, cancellationToken: ct);
+        await botClient.SendTextMessageAsync(message.Chat.Id, usage, cancellationToken: ct);
     }
 }

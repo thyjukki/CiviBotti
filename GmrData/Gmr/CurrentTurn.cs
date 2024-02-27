@@ -1,7 +1,6 @@
-﻿namespace CiviBotti.DataModels.Gmr;
+﻿using Newtonsoft.Json;
 
-using System;
-using Newtonsoft.Json;
+namespace GmrData.Gmr;
 
 public class CurrentTurn
 {

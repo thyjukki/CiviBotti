@@ -1,38 +1,31 @@
-﻿namespace CiviBotti.Services;
+﻿using GmrData.Gmr;
+
+namespace CiviBotti.Services;
 
 using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DataModels;
-using DataModels.Gmr;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 
-public class GamePollingService : BackgroundService
+public class GamePollingService(
+    SteamApiClient steamClient,
+    ITelegramBotClient botClient,
+    GameContainerService gameContainer,
+    Database database,
+    GmrClient gmrClient,
+    ILogger<GamePollingService> logger)
+    : BackgroundService
 {
-    private readonly ITelegramBotClient _botClient;
-    private readonly GameContainerService _gameContainer;
-    private readonly Database _database;
-    private readonly GmrClient _gmrClient;
-    private readonly ILogger<GamePollingService> _logger;
-    private readonly SteamApiClient _steamClient;
-    public GamePollingService(SteamApiClient steamClient, ITelegramBotClient botClient, GameContainerService gameContainer, Database database, GmrClient gmrClient, ILogger<GamePollingService> logger) {
-        _steamClient = steamClient;
-        _botClient = botClient;
-        _gameContainer = gameContainer;
-        _database = database;
-        _gmrClient = gmrClient;
-        _logger = logger;
-    }
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
             //Run polling every 30 seconds
-            foreach (var game in _gameContainer.Games.Where(gameData => gameData.Chats.Count> 0 && !gameData.IsOver )) {
+            foreach (var game in gameContainer.Games.Where(gameData => gameData.Chats.Count> 0 && !gameData.IsOver )) {
                 await PollTurn(game, stoppingToken);
             }
             await Task.Delay(30000, stoppingToken);
@@ -41,10 +34,10 @@ public class GamePollingService : BackgroundService
     
     private async Task PollTurn(GameData game, CancellationToken ct) {
         try {
-            var gameData = await _gmrClient.GetGameData(game.GameId, game.Owner);
+            var gameData = await gmrClient.GetGameData(game.GameId, game.Owner);
             
             if (gameData == null) {
-                _logger.LogError("Game {GameGameId} data null", game.GameId);
+                logger.LogError("Game {GameGameId} data null", game.GameId);
                 return;
             }
 
@@ -61,7 +54,7 @@ public class GamePollingService : BackgroundService
             }
         }
         catch (Exception ex) {
-            _logger.LogError("Polling failed with exception: {Exception}", ex);
+            logger.LogError("Polling failed with exception: {Exception}", ex);
         }
     }
 
@@ -71,13 +64,13 @@ public class GamePollingService : BackgroundService
                 await DailyNotify(game, ct);
                 return;
             }
-            var turnTimer = await _gmrClient.GetTurntimer(game, game.CurrentPlayer);
+            var turnTimer = await gmrClient.GetTurntimer(game, game.CurrentPlayer);
             if (turnTimer == null) return;
             if (game.TurnStarted + turnTimer >= DateTime.UtcNow) return;
             game.TurntimerNotified = true;
-            game.UpdateCurrent(_database);
+            game.UpdateCurrent(database);
             foreach (var chat in game.Chats) {
-                await _botClient.SendTextMessageAsync(chat, $"Turn timer kärsii {game.CurrentPlayer.NameTag}", cancellationToken: ct);
+                await botClient.SendTextMessageAsync(chat, $"Turn timer kärsii {game.CurrentPlayer.NameTag}", cancellationToken: ct);
             }
         }
         else {
@@ -86,9 +79,9 @@ public class GamePollingService : BackgroundService
             }
 
             game.CurrentPlayer.NextEta = DateTime.MinValue;
-            game.CurrentPlayer.UpdateDatabase(_database);
+            game.CurrentPlayer.UpdateDatabase(database);
             foreach (var chat in game.Chats) {
-                await _botClient.SendTextMessageAsync(chat, $"Aikamääreistä pidetään kiinni {game.CurrentPlayer.NameTag}", cancellationToken: ct);
+                await botClient.SendTextMessageAsync(chat, $"Aikamääreistä pidetään kiinni {game.CurrentPlayer.NameTag}", cancellationToken: ct);
             }
         }
     }
@@ -103,25 +96,25 @@ public class GamePollingService : BackgroundService
         var oldPlayer = game.CurrentPlayer;
         
         oldPlayer.NextEta = DateTime.MinValue;
-        oldPlayer.UpdateDatabase(_database);
+        oldPlayer.UpdateDatabase(database);
         
         game.CurrentPlayer = player;
         game.TurntimerNotified = false;
         game.TurnStarted = DateTime.Now;
         game.CurrentPlayer.NextEta = DateTime.MinValue;
         game.TurnId = current.TurnId.ToString();
-        game.CurrentPlayer.UpdateDatabase(_database);
-        game.UpdateCurrent(_database);
+        game.CurrentPlayer.UpdateDatabase(database);
+        game.UpdateCurrent(database);
 
-        player.SteamName = await _steamClient.GetSteamUserName(player.SteamId);
+        player.SteamName = await steamClient.GetSteamUserName(player.SteamId);
 
-        player.User = UserData.GetBySteamId(_database, player.SteamId);
+        player.User = UserData.GetBySteamId(database, player.SteamId);
 
         if (player.User != null) {
-            var tgUser = await _botClient.GetChatAsync(player.User.Id, cancellationToken: ct);
+            var tgUser = await botClient.GetChatAsync(player.User.Id, cancellationToken: ct);
                 
             if (tgUser.Username == null) {
-                _logger.LogWarning("User {UserId} has no username", player.User.Id);
+                logger.LogWarning("User {UserId} has no username", player.User.Id);
             }
             else {
                 player.TgName = tgUser.Username;
@@ -129,7 +122,7 @@ public class GamePollingService : BackgroundService
         }
 
         foreach (var chat in game.Chats) {
-            await _botClient.SendTextMessageAsync(chat, $"It's now your turn {game.CurrentPlayer.NameTag}!", cancellationToken: ct);
+            await botClient.SendTextMessageAsync(chat, $"It's now your turn {game.CurrentPlayer.NameTag}!", cancellationToken: ct);
         }
     }
 
@@ -174,7 +167,7 @@ public class GamePollingService : BackgroundService
             default:
                 if (game.DailyNotified) {
                     game.DailyNotified = false;
-                    game.UpdateCurrent(_database);
+                    game.UpdateCurrent(database);
                 }
                 return;
         }
@@ -183,9 +176,9 @@ public class GamePollingService : BackgroundService
             return;
         }
         game.DailyNotified = true;
-        game.UpdateCurrent(_database);
+        game.UpdateCurrent(database);
         foreach (var chat in game.Chats) {
-            await _botClient.SendTextMessageAsync(chat, message, cancellationToken: ct);
+            await botClient.SendTextMessageAsync(chat, message, cancellationToken: ct);
         }
     }
 }

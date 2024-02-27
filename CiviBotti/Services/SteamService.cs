@@ -10,17 +10,10 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-public class SteamApiClient
+public class SteamApiClient(HttpClient httpClient, IOptions<BotConfiguration> configuration)
 {
-    private readonly HttpClient _httpClient;
-    private readonly string _steamApiKey;
-    private readonly string _steamApiUrl;
-    public SteamApiClient(HttpClient httpClient, IOptions<BotConfiguration> configuration) {
-        _httpClient = httpClient;
-        
-        _steamApiUrl = configuration.Value.SteamApiUrl;
-        _steamApiKey = configuration.Value.SteamApiKey;
-    }
+    private readonly string _steamApiKey = configuration.Value.SteamApiKey;
+    private readonly string _steamApiUrl = configuration.Value.SteamApiUrl;
 
     public async Task<string> GetSteamUserName(string steamId) {
         var dic = await GetSteamUserNames(new List<string> {steamId});
@@ -31,7 +24,7 @@ public class SteamApiClient
         var url =
             $"{_steamApiUrl}ISteamUser/GetPlayerSummaries/v0002/?key={_steamApiKey}&steamids={string.Join(",", steamId.Distinct())}";
 
-        var request = await _httpClient.GetAsync(url);
+        var request = await httpClient.GetAsync(url);
         var data = await request.Content.ReadAsStringAsync();
         var responseObject = JObject.Parse(data).SelectToken("response");
         if (responseObject == null) {
