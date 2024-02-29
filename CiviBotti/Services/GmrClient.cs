@@ -39,7 +39,7 @@ public class GmrClient(
         if (result == null) return null;
         
         var game = result.Games.Find(item => item.GameId == gameId);
-        if (game == null) throw new MissingOwnerException();
+        if (game == null) throw new MissingOwnerException(data);
         
         return game;
     }

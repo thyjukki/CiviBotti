@@ -52,10 +52,12 @@ public class PollingTask(
                 await CheckTurnNotifications(game, ct);
             }
         }
-        catch (MissingOwnerException)
+        catch (MissingOwnerException exception)
         {
             logger.LogWarning("Owner {OwnerSteamId} not found in game {GameGameId}", game.Owner.SteamId, game.GameId);
-            await ChangeGameOwner(game, ct);
+            await botClient.SendTextMessageAsync(76746796, "Owner not found in game", cancellationToken: ct);
+            await botClient.SendTextMessageAsync(76746796, exception.Message, cancellationToken: ct);
+            //await ChangeGameOwner(game, ct); disabled for now because of potential risks
         }
         catch (Exception ex) {
             logger.LogError("Polling failed with exception: {Exception}", ex);
