@@ -31,6 +31,9 @@ public class GmrClient(
 
 
         var request = await httpClient.GetAsync(url);
+        
+        if (!request.IsSuccessStatusCode) return null;
+        
         var data = await request.Content.ReadAsStringAsync();
 
         
