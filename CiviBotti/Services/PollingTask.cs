@@ -152,7 +152,9 @@ public class PollingTask(
         }
         
         string message;
+#pragma warning disable S2245
         var rnd = new Random();
+#pragma warning restore S2245
         switch (DateTime.UtcNow.Hour) {
             case 7: {
                     message = rnd.Next(0, 8) switch {

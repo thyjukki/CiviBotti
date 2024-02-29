@@ -18,6 +18,7 @@ pipeline {
                  /k:"civibotti" \
                  /n:"civibotti"'''
                     sh 'dotnet build "CiviBotti/CiviBotti.csproj" -c Release'
+                    sh 'dotnet test --collect:"XPlat Code Coverage"'
                     sh 'dotnet /sonar-scanner/SonarScanner.MSBuild.dll end'
                 }
             }
