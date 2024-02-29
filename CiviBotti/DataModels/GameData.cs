@@ -154,6 +154,7 @@ public class GameData(
     }
 
     public void RemoveChat(IDatabase db, long id) {
+        Chats.Remove(id);
         var sql = $"DELETE FROM gamechats WHERE gameid = {GameId} AND chatid = {id}";
         Console.WriteLine(sql);
         db.ExecuteNonQuery(sql);

@@ -215,7 +215,6 @@ public class GameAdminCmdService(
                 return;
             }
 
-            selectedGame.Chats.Remove(chat.Id);
             selectedGame.RemoveChat(database, chat.Id);
 
 
