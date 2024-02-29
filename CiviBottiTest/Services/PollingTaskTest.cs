@@ -4,7 +4,6 @@ using CiviBotti.Services;
 
 using GmrData.Gmr;
 
-using Microsoft.CognitiveServices.Speech.Transcription;
 using Microsoft.Extensions.Logging;
 
 using Moq;

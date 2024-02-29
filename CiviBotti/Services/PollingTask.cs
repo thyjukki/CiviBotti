@@ -63,7 +63,7 @@ public class PollingTask(
     }
 
     private async Task ChangeGameOwner(GameData game, CancellationToken ct) {
-        PlayerData nextOwner = null;
+        PlayerData? nextOwner = null;
         foreach (var player in game.Players)
         {
             if (player.User == null || player.SteamId == game.Owner.SteamId)
@@ -164,7 +164,7 @@ public class PollingTask(
             var tgUser = await botClient.GetChatAsync(player.User.Id, cancellationToken: ct);
                 
             if (tgUser.Username == null) {
-                LoggerExtensions.LogWarning(logger, "User {UserId} has no username", player.User.Id);
+                logger.LogWarning("User {UserId} has no username", player.User.Id);
             }
             else {
                 player.TgName = tgUser.Username;

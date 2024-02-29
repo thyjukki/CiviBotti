@@ -48,9 +48,10 @@ public class TurntimeCmdServices
 
         var player = selectedGame.CurrentPlayer;
         var name = player.Name;
-
-
+        
+#pragma warning disable S2245
         var rnd = new Random();
+#pragma warning restore S2245
 
 
         string output;
