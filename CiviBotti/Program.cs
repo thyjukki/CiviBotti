@@ -1,6 +1,9 @@
 ﻿using System;
 using CiviBotti.Configurations;
 using CiviBotti.Services;
+
+using Gelf.Extensions.Logging;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +17,10 @@ var host = Host.CreateDefaultBuilder(args).ConfigureLogging(logging =>
     {
         logging.ClearProviders();
         logging.AddConsole();
+        if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Production")
+        {
+            logging.AddGelf();
+        }
     }).ConfigureAppConfiguration((_, config) =>
     {
         var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
