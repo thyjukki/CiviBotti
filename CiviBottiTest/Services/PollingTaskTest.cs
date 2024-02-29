@@ -38,7 +38,7 @@ public class PollingTaskTest
         var gameContainerMock = new Mock<IGameContainerService>();
         gameContainerMock.Setup(gameContainer => gameContainer.Games).Returns(new List<GameData> { game });
         
-        var mockLogger = new Mock<ILogger>();
+        var mockLogger = new Mock<ILogger<GamePollingService>>();
         
         var gamePollingService = new PollingTask(steamClient, botClient, gameContainerMock.Object, database, gmrClient, mockLogger.Object);
         await gamePollingService.PollGames(new CancellationToken());
@@ -60,7 +60,7 @@ public class PollingTaskTest
         var gameContainerMock = new Mock<IGameContainerService>();
         gameContainerMock.Setup(gameContainer => gameContainer.Games).Returns(new List<GameData> { game });
         
-        var mockLogger = new Mock<ILogger>();
+        var mockLogger = new Mock<ILogger<GamePollingService>>();
         
         var gmrClientMock = new Mock<IGmrClient>();
         gmrClientMock.Setup(
@@ -113,7 +113,7 @@ public class PollingTaskTest
         var gameContainerMock = new Mock<IGameContainerService>();
         gameContainerMock.Setup(gameContainer => gameContainer.Games).Returns(new List<GameData> { game });
         
-        var mockLogger = new Mock<ILogger>();
+        var mockLogger = new Mock<ILogger<GamePollingService>>();
         
         var gmrClientMock = new Mock<IGmrClient>();
         gmrClientMock.Setup(
@@ -178,7 +178,7 @@ public class PollingTaskTest
         var gameContainerMock = new Mock<IGameContainerService>();
         gameContainerMock.Setup(gameContainer => gameContainer.Games).Returns(new List<GameData> { game });
         
-        var mockLogger = new Mock<ILogger>();
+        var mockLogger = new Mock<ILogger<GamePollingService>>();
         
         var gmrClientMock = new Mock<IGmrClient>();
         gmrClientMock.Setup(

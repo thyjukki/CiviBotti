@@ -8,7 +8,7 @@ using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 
-public class UtilCmdService(ITelegramBotClient botClient, GameContainerService gameContainer)
+public class UtilCmdService(ITelegramBotClient botClient, IGameContainerService gameContainer)
 {
     public async Task Order(Message message, Chat chat, CancellationToken ct) {
         await botClient.SendChatActionAsync(chat.Id, ChatAction.Typing, cancellationToken: ct);

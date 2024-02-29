@@ -20,7 +20,7 @@ public class PollingTask(
     IGameContainerService gameContainer,
     IDatabase database,
     IGmrClient gmrClient,
-    ILogger logger)
+    ILogger<GamePollingService> logger)
 {
 
     public async Task PollGames(CancellationToken ct)
@@ -63,9 +63,39 @@ public class PollingTask(
     }
 
     private async Task ChangeGameOwner(GameData game, CancellationToken ct) {
-        var nextOwner = game.Players.Find(player => player.User != null && player.SteamId != game.Owner.SteamId);
+        PlayerData nextOwner = null;
+        foreach (var player in game.Players)
+        {
+            if (player.User == null || player.SteamId == game.Owner.SteamId)
+            {
+                continue;
+            }
+
+            PackagedGame? gameData;
+            try
+            {
+                gameData = await gmrClient.GetGameData(game.GameId, player.User.SteamId, player.User.AuthKey);
+            }
+            catch (MissingOwnerException)
+            {
+                continue;
+            }
+            if (gameData == null)
+            {
+                continue;
+            }
+            nextOwner = player;
+            break;
+        }
+        
         if (nextOwner == null)
         {
+            
+            foreach (var chat in game.Chats)
+            {
+                game.RemoveChat(database, chat);
+                await botClient.SendTextMessageAsync(chat, $"All players have left the game, removing the game from this chat", cancellationToken: ct);
+            }
             logger.LogError("No potential owner found for game {GameGameId}", game.GameId);
             return;
         }

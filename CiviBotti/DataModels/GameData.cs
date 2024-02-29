@@ -34,7 +34,7 @@ public class GameData(
 
     public void UpdateOwner(IDatabase db, UserData nextOwnerUser) {
         Owner = nextOwnerUser;
-        var sql = $"UPDATE games SET ownerid = {Owner.SteamId} WHERE gameid = {GameId}";
+        var sql = $"UPDATE games SET ownerid = {Owner.Id} WHERE gameid = {GameId}";
 
         Console.WriteLine(sql);
         db.ExecuteNonQuery(sql);

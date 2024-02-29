@@ -14,7 +14,7 @@ public class GamePollingService(
     IGameContainerService gameContainer,
     IDatabase database,
     IGmrClient gmrClient,
-    ILogger logger)
+    ILogger<GamePollingService> logger)
     : BackgroundService
 {
     private readonly PollingTask _pollingTask =

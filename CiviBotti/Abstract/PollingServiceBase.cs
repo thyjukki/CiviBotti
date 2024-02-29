@@ -13,23 +13,16 @@ using Microsoft.Extensions.Logging;
 /// An abstract class to compose Polling background service and Receiver implementation classes
 /// </summary>
 /// <typeparam name="TReceiverService">Receiver implementation class</typeparam>
-public abstract class PollingServiceBase<TReceiverService> : BackgroundService
+public abstract class PollingServiceBase<TReceiverService>(
+    IServiceProvider serviceProvider,
+    ILogger<PollingServiceBase<TReceiverService>> logger)
+    : BackgroundService
     where TReceiverService : IReceiverService
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger _logger;
-
-    protected PollingServiceBase(
-        IServiceProvider serviceProvider,
-        ILogger<PollingServiceBase<TReceiverService>> logger)
-    {
-        _serviceProvider = serviceProvider;
-        _logger = logger;
-    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Starting polling service");
+        logger.LogInformation("Starting polling service");
 
         await DoWork(stoppingToken);
     }
@@ -45,7 +38,7 @@ public abstract class PollingServiceBase<TReceiverService> : BackgroundService
                 // Create new IServiceScope on each iteration.
                 // This way we can leverage benefits of Scoped TReceiverService
                 // and typed HttpClient - we'll grab "fresh" instance each time
-                using var scope = _serviceProvider.CreateScope();
+                using var scope = serviceProvider.CreateScope();
                 var receiver = scope.ServiceProvider.GetRequiredService<TReceiverService>();
 
                 await receiver.ReceiveAsync(stoppingToken);
@@ -55,7 +48,7 @@ public abstract class PollingServiceBase<TReceiverService> : BackgroundService
             // see: https://github.com/TelegramBots/Telegram.Bot/issues/1106
             catch (Exception ex)
             {
-                _logger.LogError("Polling failed with exception: {Exception}", ex);
+                logger.LogError("Polling failed with exception: {Exception}", ex);
 
                 // Cooldown if something goes wrong
                 await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);

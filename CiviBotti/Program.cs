@@ -57,7 +57,7 @@ var host = Host.CreateDefaultBuilder(args).ConfigureLogging(logging =>
     .Build();
 
 
-var gameContainer = host.Services.GetRequiredService<GameContainerService>();
+var gameContainer = host.Services.GetRequiredService<IGameContainerService>();
 await gameContainer.InitializeAsync();
 
 await host.RunAsync();
