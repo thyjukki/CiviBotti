@@ -19,14 +19,14 @@ using Telegram.Bot.Types.Enums;
 public class TurntimeCmdServices
 {
     private readonly ITelegramBotClient _botClient;
-    private readonly GameContainerService _gameContainer;
-    private readonly Database _database;
-    private readonly GmrClient _gmrClient;
+    private readonly IGameContainerService _gameContainer;
+    private readonly IDatabase _database;
+    private readonly IGmrClient _gmrClient;
     private readonly SpeechConfig _speechConfig;
     private readonly ILogger<TurntimeCmdServices> _logger;
 
-    public TurntimeCmdServices(ITelegramBotClient botClient, GameContainerService gameContainer,
-        ILogger<TurntimeCmdServices> logger, IOptions<BotConfiguration> configuration, GmrClient gmrClient, Database database) {
+    public TurntimeCmdServices(ITelegramBotClient botClient, IGameContainerService gameContainer,
+        ILogger<TurntimeCmdServices> logger, IOptions<BotConfiguration> configuration, IGmrClient gmrClient, IDatabase database) {
         _botClient = botClient;
         _gameContainer = gameContainer;
         _logger = logger;

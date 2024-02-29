@@ -16,11 +16,11 @@ using Telegram.Bot.Types.Enums;
 
 public class GameAdminCmdService(
     ITelegramBotClient botClient,
-    GameContainerService gameContainer,
-    Database database,
-    SteamApiClient steamApiClient,
+    IGameContainerService gameContainer,
+    IDatabase database,
+    ISteamApiClient steamApiClient,
     ILogger<GameAdminCmdService> logger,
-    GmrClient gmrClient)
+    IGmrClient gmrClient)
 {
     public async Task NewGame(Message message, Chat chat, CancellationToken ct) {
         await botClient.SendChatActionAsync(chat.Id, ChatAction.Typing, cancellationToken: ct);
@@ -55,7 +55,7 @@ public class GameAdminCmdService(
         
         PackagedGame? data;
         try {
-            data = await gmrClient.GetGameData(gameId, owner);
+            data = await gmrClient.GetGameData(gameId, owner.SteamId, owner.AuthKey);
         }
         catch (WebException) {
             await botClient.SendTextMessageAsync(message.Chat.Id, "Could not connect to services, please try again later!", cancellationToken: ct);

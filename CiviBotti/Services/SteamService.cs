@@ -10,7 +10,7 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-public class SteamApiClient(HttpClient httpClient, IOptions<BotConfiguration> configuration)
+public class SteamApiClient(HttpClient httpClient, IOptions<BotConfiguration> configuration) : ISteamApiClient
 {
     private readonly string _steamApiKey = configuration.Value.SteamApiKey;
     private readonly string _steamApiUrl = configuration.Value.SteamApiUrl;

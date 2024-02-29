@@ -18,14 +18,14 @@ public class SubData
         GameId = gameId;
     }
 
-    public void InsertDatabase(Database db)
+    public void InsertDatabase(IDatabase db)
     {
         var sql = $"INSERT INTO subs (gameid, id, subid, times) values ({GameId}, '{_id}', '{SubId}', '{Times}')";
         Console.WriteLine(sql);
         db.ExecuteNonQuery(sql);
     }
 
-    public static List<SubData> Get(Database db, long id) {
+    public static List<SubData> Get(IDatabase db, long id) {
         var sql = $"SELECT * FROM subs WHERE id = {id}";
         Console.WriteLine(sql);
         var reader = db.ExecuteReader(sql);
@@ -42,7 +42,7 @@ public class SubData
         return collection;
     }
 
-    public void RemoveSub(Database db) {
+    public void RemoveSub(IDatabase db) {
         var sql = $"DELETE FROM subs WHERE gameid = {GameId} AND id = {_id} AND subid = {SubId}";
         Console.WriteLine(sql);
         db.ExecuteNonQuery(sql);

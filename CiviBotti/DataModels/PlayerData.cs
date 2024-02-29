@@ -42,7 +42,7 @@ public class PlayerData
         }
     }
 
-    public void InsertDatabase(Database db)
+    public void InsertDatabase(IDatabase db)
     {
         var sql = $"INSERT INTO players (gameid, steamid, turnorder, nexteta) values ({_gameId}, {SteamId}, {TurnOrder}, '{NextEta}')";
 
@@ -50,7 +50,7 @@ public class PlayerData
         db.ExecuteNonQuery(sql);
     }
 
-    public void UpdateDatabase(Database db)
+    public void UpdateDatabase(IDatabase db)
     {
         var sql = $"UPDATE players SET turnorder = {TurnOrder}, nexteta = '{NextEta}' WHERE gameid = {_gameId} AND steamId = {SteamId}";
 
@@ -60,13 +60,13 @@ public class PlayerData
 
     public override string ToString() => $"Player: {Name}";
 
-    public static PlayerData? GetBySteamAndGameId(Database db, string gameId, long currentPlayerSteamId) {
+    public static PlayerData? GetBySteamAndGameId(IDatabase db, string gameId, long currentPlayerSteamId) {
         var sql = $"SELECT * FROM players WHERE steamid = {currentPlayerSteamId} AND gameid = {gameId}";
         var reader = db.ExecuteReader(sql);
 
         return !reader.Read() ? null : new PlayerData(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetDateTime(3));
     }
-    public static List<PlayerData> GetByGameId(Database db, string gameId) {
+    public static List<PlayerData> GetByGameId(IDatabase db, string gameId) {
         var sql = $"SELECT * FROM players WHERE gameid = {gameId}";
         var reader = db.ExecuteReader(sql);
         var players = new List<PlayerData>();

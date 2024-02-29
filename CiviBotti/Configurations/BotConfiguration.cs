@@ -10,9 +10,6 @@ public class BotConfiguration
     [ConfigurationKeyName("BOT_TOKEN")]  
     public required string BotToken { get; set; }
     
-    [ConfigurationKeyName("GMR_URL")]  
-    public required string GmrUrl { get; set; }
-    
     [ConfigurationKeyName("SPEECH_KEY")]  
     
     public required string SpeechKey { get; set; }

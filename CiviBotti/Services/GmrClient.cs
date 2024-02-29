@@ -1,4 +1,6 @@
-﻿using GmrData.Gmr;
+﻿using CiviBotti.Exceptions;
+
+using GmrData.Gmr;
 
 namespace CiviBotti.Services;
 
@@ -19,13 +21,13 @@ using Newtonsoft.Json;
 public class GmrClient(
     HttpClient httpClient,
     IOptions
-        <BotConfiguration> botConfigGmrUrl)
+        <GmrConfiguration> botConfigGmrUrl) : IGmrClient
 {
     private readonly string _gmrUrl = botConfigGmrUrl.Value.GmrUrl;
 
-    public async Task<PackagedGame?> GetGameData(long gameId, UserData owner) {
+    public async Task<PackagedGame?> GetGameData(long gameId, string steamId, string ownerAuthKey) {
         var url =
-            $"{_gmrUrl}api/Diplomacy/GetGamesAndPlayers?playerIDText={owner.SteamId}&authKey={owner.AuthKey}";
+            $"{_gmrUrl}api/Diplomacy/GetGamesAndPlayers?playerIDText={steamId}&authKey={ownerAuthKey}";
 
 
         var request = await httpClient.GetAsync(url);
@@ -33,8 +35,13 @@ public class GmrClient(
 
         
         var result = JsonConvert.DeserializeObject<PackagedGameContainer>(data);
+
+        if (result == null) return null;
         
-        return result?.Games.Find(item => item.GameId == gameId);
+        var game = result.Games.Find(item => item.GameId == gameId);
+        if (game == null) throw new MissingOwnerException();
+        
+        return game;
     }
 
     public async Task<string> GetPlayerIdFromAuthKey(string authKey) {

@@ -10,7 +10,7 @@ using Configurations;
 using Microsoft.Extensions.Options;
 using MySql.Data.MySqlClient;
 
-public class Database
+public class Database : IDatabase
 {
     private readonly DbConnection _connection;
 

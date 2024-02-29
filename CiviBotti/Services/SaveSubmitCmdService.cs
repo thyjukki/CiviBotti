@@ -15,9 +15,9 @@ using Telegram.Bot.Types.ReplyMarkups;
 
 public class SaveSubmitCmdService(
     ITelegramBotClient botClient,
-    GameContainerService gameContainer,
-    GmrClient gmrClient,
-    Database database)
+    IGameContainerService gameContainer,
+    IGmrClient gmrClient,
+    IDatabase database)
 {
     public async Task HandleCallback(CallbackQuery callbackQuery, string[] dataPoints, CancellationToken cancellationToken) {
         if (dataPoints[0] != "savesubmit") {

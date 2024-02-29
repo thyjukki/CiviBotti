@@ -12,7 +12,7 @@ using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
 
-public class SubsCmdService(ITelegramBotClient botClient, GameContainerService gameContainer, Database database)
+public class SubsCmdService(ITelegramBotClient botClient, IGameContainerService gameContainer, IDatabase database)
 {
     public async Task HandleCallback(CallbackQuery callbackQuery, string[] dataPoints, CancellationToken cancellationToken) {
         if (dataPoints[0] != "subs") {

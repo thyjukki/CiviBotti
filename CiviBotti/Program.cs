@@ -24,8 +24,8 @@ var host = Host.CreateDefaultBuilder(args).ConfigureLogging(logging =>
     })
     .ConfigureServices((context, services) => {
         services.Configure<BotConfiguration>(context.Configuration.GetSection(BotConfiguration.Configuration));
-        services.AddOptions<BotConfiguration>()
-            .Bind(context.Configuration.GetSection(BotConfiguration.Configuration));
+        services.AddOptions<BotConfiguration>().Bind(context.Configuration.GetSection(BotConfiguration.Configuration));
+        services.Configure<GmrConfiguration>(context.Configuration.GetSection(GmrConfiguration.Configuration));
         services.AddHttpClient("telegram_bot_client")
             .AddTypedClient<ITelegramBotClient>((httpClient, sp) =>
             {
@@ -38,11 +38,11 @@ var host = Host.CreateDefaultBuilder(args).ConfigureLogging(logging =>
             });
 
 
-        services.AddHttpClient("steam_client").AddTypedClient<SteamApiClient>();
-        services.AddHttpClient("gmr_client").AddTypedClient<GmrClient>();
+        services.AddHttpClient<ISteamApiClient, SteamApiClient>();
+        services.AddHttpClient<IGmrClient, GmrClient>();
 
-        services.AddSingleton<GameContainerService>();
-        services.AddSingleton<Database>();
+        services.AddSingleton<IGameContainerService, GameContainerService>();
+        services.AddSingleton<IDatabase, Database>();
 
         services.AddScoped<UpdateHandler>();
         services.AddScoped<ReceiverService>();

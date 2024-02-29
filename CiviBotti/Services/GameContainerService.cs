@@ -8,12 +8,12 @@ using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 
 public class GameContainerService(
-    Database database,
-    SteamApiClient steamApiClient,
+    IDatabase database,
+    ISteamApiClient steamApiClient,
     ITelegramBotClient botClient,
-    ILogger<GameContainerService> logger)
+    ILogger<GameContainerService> logger) : IGameContainerService
 {
-    private readonly List<GameData> _gamesContainer = new ();
+    private readonly List<GameData> _gamesContainer = [];
     public IEnumerable<GameData> Games =>  _gamesContainer;
 
     public void Add(GameData game) => _gamesContainer.Add(game);
