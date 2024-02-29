@@ -188,11 +188,15 @@ public class TurntimeCmdServices
         
         var sortedDict = from entry in turntimers orderby entry.Value ascending select entry;
 
-        foreach (var (steamId, timer) in sortedDict) {
+        foreach ((string? steamId, TimeSpan timer) in sortedDict) {
             var player = selectedGame.Players.Find(p => p.SteamId == steamId);
             
             if (player == null) {
                 _logger.LogWarning("Player not found: {SteamId} in game {SelectedGameGameId}", steamId, selectedGame.GameId);
+                continue;
+            }
+            
+            if (onlyCurrent && player.SteamId != selectedGame.CurrentPlayer.SteamId) {
                 continue;
             }
             
