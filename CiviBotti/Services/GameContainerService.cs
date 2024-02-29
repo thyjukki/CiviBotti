@@ -24,16 +24,16 @@ public class GameContainerService(
 
     private async Task InitializePlayersForGame(GameData game, Dictionary<string, string> playerSteamNames) {
         var ownerName = playerSteamNames.GetValueOrDefault(game.Owner.SteamId, game.Owner.SteamId);
-        logger.LogInformation("{Game} {GameOwner}", game, ownerName);
-        logger.LogInformation(" chats:");
+        logger.LogDebug("{Game} {GameOwner}", game, ownerName);
+        logger.LogDebug(" chats:");
         foreach (var chat in game.Chats) {
-            logger.LogInformation("  -{Chat}", chat);
+            logger.LogDebug("  -{Chat}", chat);
         }
 
-        logger.LogInformation(" players:");
+        logger.LogDebug(" players:");
         foreach (var player in game.Players) {
             if (!playerSteamNames.TryGetValue(player.SteamId, out var steamName)) {
-                logger.LogInformation("  -{Player} ({PlayerTurnOrder}) {PlayerUser} Error getting steam name", player, player.TurnOrder, player.SteamId);
+                logger.LogDebug("  -{Player} ({PlayerTurnOrder}) {PlayerUser} Error getting steam name", player, player.TurnOrder, player.SteamId);
                 continue;
             }
             player.SteamName = steamName;
@@ -41,14 +41,14 @@ public class GameContainerService(
             if (player.User != null) {
                 var user = await botClient.GetChatAsync(player.User.Id);
                 if (user.Username == null) {
-                    logger.LogInformation("  -{Player} ({PlayerTurnOrder}) {PlayerUser} Error getting user", player, player.TurnOrder, player.SteamId);
+                    logger.LogDebug("  -{Player} ({PlayerTurnOrder}) {PlayerUser} Error getting user", player, player.TurnOrder, player.SteamId);
                 }
                 else {
                     player.TgName = user.Username;
                 }
             }
 
-            logger.LogInformation("  -{Player} ({PlayerTurnOrder}) {PlayerUser}", player, player.TurnOrder, player.TgName);
+            logger.LogDebug("  -{Player} ({PlayerTurnOrder}) {PlayerUser}", player, player.TurnOrder, player.TgName);
         }
     }
 
