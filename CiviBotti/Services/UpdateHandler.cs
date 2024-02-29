@@ -73,8 +73,8 @@ public class UpdateHandler(
             
             "/tee" => turntimeCmdServices.Tee(message, chat, cancellationToken),
             "/eta" => turntimeCmdServices.Eta(message, chat, cancellationToken),
-            "/turntimer" => turntimeCmdServices.Turntimers(chat, true, cancellationToken),
             "/turntimers" => turntimeCmdServices.Turntimers(chat, false, cancellationToken),
+            "/turntimer" => turntimeCmdServices.Turntimers(chat, true, cancellationToken),
             
             "/listsubs" => subsCmdService.ListSubs(message, chat, cancellationToken),
             "/addsub" => subsCmdService.AddSub(message, chat, cancellationToken),
