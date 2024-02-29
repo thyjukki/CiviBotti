@@ -1,6 +1,11 @@
 def app = null
 pipeline {
     agent { label 'linux&&docker' }
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        ansiColor('xterm')
+    }
     environment {
         HOME='/tmp/home'
         DOTNET_CLI_TELEMETRY_OPTOUT=1
