@@ -91,7 +91,7 @@ public class PollingTask(
         if (nextOwner == null)
         {
             
-            foreach (var chat in game.Chats)
+            foreach (var chat in game.Chats.ToList())
             {
                 game.RemoveChat(database, chat);
                 await botClient.SendTextMessageAsync(chat, $"All players have left the game, removing the game from this chat", cancellationToken: ct);

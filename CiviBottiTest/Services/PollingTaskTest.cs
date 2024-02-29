@@ -103,7 +103,7 @@ public class PollingTaskTest
     public async Task ShouldLogWarningAndLogErrorIfOwnerHasLeftGameAndNoOtherPlayers()
     {
         (GameData game, UserData user, PlayerData player) = CreateTestGame();
-        var player2 = new PlayerData(game.GameId, "steamid2", 0, DateTime.MinValue);
+        var player2 = new PlayerData(game.GameId, "111111", 0, DateTime.MinValue);
         game.Players.Add(player2);
         game.Chats.Add(1);
         var steamClient = Mock.Of<ISteamApiClient>();
@@ -167,7 +167,7 @@ public class PollingTaskTest
     public async Task ShouldLogWarningAndChangeOwnerIfOwnerHasLeftGame()
     {
         (GameData game, UserData user, PlayerData player) = CreateTestGame();
-        var user2 = new UserData(2, "steamid2", "authKey2");
+        var user2 = new UserData(2, "222222", "authKey2");
         var player2 = new PlayerData(game.GameId, user2.SteamId, 0, DateTime.MinValue) { User = user2 };
         game.Players.Add(player2);
         game.Chats.Add(1);
@@ -189,6 +189,22 @@ public class PollingTaskTest
                 )
             )
             .Throws(new MissingOwnerException())
+            .Verifiable(Times.Once);
+        gmrClientMock.Setup(
+                g => g.GetGameData(
+                    It.Is<long>(x => x  == game.GameId),
+                    It.Is<string>(x => x  == player2.SteamId),
+                    It.Is<string>(x => x  == user2.AuthKey)
+                )
+            ).ReturnsAsync(new PackagedGame()
+            {
+                CurrentTurn = new CurrentTurn(),
+                Players = [new PackagedUser{TurnOrder = player2.TurnOrder, UserId = 222222}],
+                GameId = (int)game.GameId,
+                Name = game.Name,
+                Type = ""
+                
+            })
             .Verifiable(Times.Once);
         
         var gamePollingService = new PollingTask(
