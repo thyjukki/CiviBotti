@@ -20,7 +20,7 @@ public class PollingTaskTest
     {
         var user = new UserData(1, "steamid", "authKey");
         var player = new PlayerData(1, user.SteamId, 0, DateTime.MinValue);
-        var game = new GameData(1, user, "TestGame", player, false, false);
+        var game = new GameData(1, user, "TestGame", player, false, false, false);
         game.Players.Add(player);
         return (game, user, player);
     }

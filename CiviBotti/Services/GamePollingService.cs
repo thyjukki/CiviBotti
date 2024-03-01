@@ -17,8 +17,7 @@ public class GamePollingService(
     ILogger<GamePollingService> logger)
     : BackgroundService
 {
-    private readonly PollingTask _pollingTask =
-        new PollingTask(steamClient, botClient, gameContainer, database, gmrClient, logger);
+    private readonly PollingTask _pollingTask = new (steamClient, botClient, gameContainer, database, gmrClient, logger);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
