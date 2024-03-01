@@ -11,6 +11,7 @@ using GmrData.Gmr;
 using Microsoft.Extensions.Logging;
 
 using Telegram.Bot;
+using Telegram.Bot.Exceptions;
 
 namespace CiviBotti.Services;
 
@@ -25,8 +26,26 @@ public class PollingTask(
 
     public async Task PollGames(CancellationToken ct)
     {
+        var botUser = await botClient.GetMeAsync(cancellationToken: ct);
         foreach (var game in gameContainer.Games.Where(gameData => gameData.Chats.Count > 0 && !gameData.IsOver))
         {
+            foreach (var chat in game.Chats.ToList())
+            {
+                try
+                {
+                    await botClient.GetChatMemberAsync(chat, botUser.Id, ct);
+                }
+                catch (ApiRequestException exception)
+                {
+                    if (exception.ErrorCode == 403)
+                    {
+                        game.RemoveChat(database, chat);
+                        logger.LogInformation("Bot is not a member of chat {ChatId} anymore, removing chat", chat);
+                    }
+                }
+            }
+            
+            if (game.Chats.Count == 0) return;
             await PollTurn(game, ct);
         }
     }

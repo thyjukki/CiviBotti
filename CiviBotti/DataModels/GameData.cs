@@ -13,6 +13,7 @@ public class GameData(
     string name,
     PlayerData currentPlayer,
     bool turntimerNotified,
+    bool dailyNotified,
     bool isOver)
 {
     public long GameId { get; } = gameId;
@@ -24,7 +25,7 @@ public class GameData(
     public PlayerData CurrentPlayer { get; set; } = currentPlayer;
     public DateTime TurnStarted { get; set;}
     public bool TurntimerNotified { get; set;} = turntimerNotified;
-    public bool DailyNotified { get; set;}
+    public bool DailyNotified { get; set;} = dailyNotified;
     public bool EnableDailyNotified { get; } = true;
 
     public bool IsOver { get; set; } = isOver;
@@ -97,6 +98,7 @@ public class GameData(
             currentPlayerSteamId = reader.GetString(3);
             var turnTimeNotified = reader.GetBoolean(4);
 
+            var dn = reader.GetBoolean(7);
             var over = reader.GetBoolean(8);
             var playerSteamId = reader.GetString(10);
             var playerTurnOrder = reader.GetInt32(11);
@@ -128,7 +130,7 @@ public class GameData(
                 throw new MalformedDatabaseException("Owner not found");
             }
 
-            var game = new GameData(gId, o, gameName, cp, turnTimeNotified, over);
+            var game = new GameData(gId, o, gameName, cp, turnTimeNotified, dn, over);
             game.Players.Clear();
             game.Players.AddRange(players);
             gameDatas.Add(game);

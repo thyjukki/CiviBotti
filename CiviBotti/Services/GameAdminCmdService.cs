@@ -81,7 +81,7 @@ public class GameAdminCmdService(
 
         
         var newGame = new GameData(gameId, owner, data.Name,
-            currentPlayer ?? players[0], true, false);
+            currentPlayer ?? players[0], true, false, false);
         newGame.Players.Clear();
         newGame.Players.AddRange(players);
         newGame.TurnStarted = data.CurrentTurn.Started;
