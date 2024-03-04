@@ -26,25 +26,8 @@ public class PollingTask(
 
     public async Task PollGames(CancellationToken ct)
     {
-        var botUser = await botClient.GetMeAsync(cancellationToken: ct);
         foreach (var game in gameContainer.Games.Where(gameData => gameData.Chats.Count > 0 && !gameData.IsOver))
         {
-            foreach (var chat in game.Chats.ToList())
-            {
-                try
-                {
-                    await botClient.GetChatMemberAsync(chat, botUser.Id, ct);
-                }
-                catch (ApiRequestException exception)
-                {
-                    if (exception.ErrorCode == 403)
-                    {
-                        game.RemoveChat(database, chat);
-                        logger.LogInformation("Bot is not a member of chat {ChatId} anymore, removing chat", chat);
-                    }
-                }
-            }
-            
             if (game.Chats.Count == 0) return;
             await PollTurn(game, ct);
         }
@@ -70,13 +53,6 @@ public class PollingTask(
             else {
                 await CheckTurnNotifications(game, ct);
             }
-        }
-        catch (MissingOwnerException exception)
-        {
-            logger.LogWarning("Owner {OwnerSteamId} not found in game {GameGameId}", game.Owner.SteamId, game.GameId);
-            await botClient.SendTextMessageAsync(76746796, $"Owner {game.Owner.SteamId } of the game {game.Name} not found", cancellationToken: ct);
-            await botClient.SendTextMessageAsync(76746796, exception.Message, cancellationToken: ct);
-            //await ChangeGameOwner(game, ct); disabled for now because of potential risks
         }
         catch (Exception ex) {
             logger.LogError("Polling failed with exception: {Exception}", ex);

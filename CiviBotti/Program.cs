@@ -60,6 +60,7 @@ var host = Host.CreateDefaultBuilder(args).ConfigureLogging(logging =>
         services.AddScoped<UtilCmdService>();
         services.AddHostedService<PollingService>();
         services.AddHostedService<GamePollingService>();
+        services.AddHostedService<GameCleanerService>();
     })
     .Build();
 
